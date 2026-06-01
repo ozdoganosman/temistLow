@@ -1,0 +1,1 @@
+.period-selector,.signal-toggle{display:flex;gap:4px;margin-right:12px}.signal-toggle .toolbar-btn.bull-active{background:#26a69a40;border-color:var(--up-color);color:var(--up-color)}.signal-toggle .toolbar-btn.bear-active{background:#ef535040;border-color:var(--down-color);color:var(--down-color)}
