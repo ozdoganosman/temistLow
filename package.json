@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/404.html",
     "build:data": "python scripts/build_data.py",
     "build:all": "python scripts/build_data.py && vite build",
     "preview": "vite preview",
