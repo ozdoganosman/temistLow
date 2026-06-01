@@ -49,6 +49,13 @@ import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
 import { getChartPerfProfile, countChartIndicatorLoad, getEffectiveLargeModeThreshold } from './chartPerf';
+import {
+  buildPanLitePatch,
+  buildSliderSyncPatch,
+  shouldUsePanLite,
+  PAN_Y_DRAG_THRESHOLD_PX,
+} from './chartInteraction';
+import { ChartPanProbe } from './chartPerfProbe';
 import { useDeferredChartFlags } from './useDeferredChartFlags';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
@@ -575,6 +582,7 @@ function ChartContainer({
   const legendThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLegendRef = useRef<LegendData | null | undefined>(undefined);
   const indicatorLoadRef = useRef(0);
+  const panProbeRef = useRef(new ChartPanProbe());
 
   // Load drawings from localStorage
   useEffect(() => {
@@ -801,6 +809,8 @@ function ChartContainer({
     let activeYAxisGridIndex = 0;
     // RAF throttle for drag moves
     let dragRafId: number | null = null;
+    let panLiteActive = false;
+    let pendingSliderSync: { start: number; end: number } | null = null;
     // Shared drag flag — component-level isDraggingRef
 
     // Shift + Drag measurement variables
@@ -1092,6 +1102,15 @@ function ChartContainer({
         startYMin = extent2[0];
         startYMax = extent2[1];
       }
+
+      if (shouldUsePanLite(indicatorLoadRef.current)) {
+        panLiteActive = true;
+        chart.setOption(buildPanLitePatch(opt as Record<string, unknown>, 'enter'), {
+          silent: true,
+          lazyUpdate: true,
+        });
+      }
+      panProbeRef.current.beginDrag();
       preventDefault();
     };
 
@@ -1120,12 +1139,15 @@ function ChartContainer({
           const newHalf = (yRange / 2) * Math.max(0.1, scaleFactor);
           const yMin = mid - newHalf;
           const yMax = mid + newHalf;
-          chart.setOption({
-            yAxis:
-              capturedAxisId === PRICE_Y_AXIS_ID
-                ? buildSyncedPriceYAxes(yMin, yMax)
-                : [{ id: capturedAxisId, min: yMin, max: yMax }],
-          });
+          chart.setOption(
+            {
+              yAxis:
+                capturedAxisId === PRICE_Y_AXIS_ID
+                  ? buildSyncedPriceYAxes(yMin, yMax)
+                  : [{ id: capturedAxisId, min: yMin, max: yMax }],
+            },
+            { silent: true, lazyUpdate: true },
+          );
         });
         return;
       }
@@ -1154,12 +1176,14 @@ function ChartContainer({
         const newEnd = startZoomEnd + shift;
 
         const patch: Record<string, unknown> = {
-          dataZoom: [
-            { start: newStart, end: newEnd },
-            { start: newStart, end: newEnd },
-          ],
+          dataZoom: [{ start: newStart, end: newEnd }],
         };
-        if (capturedAxisId && capturedAxisId !== '') {
+        pendingSliderSync = { start: newStart, end: newEnd };
+        if (
+          capturedAxisId &&
+          capturedAxisId !== '' &&
+          Math.abs(dy) >= PAN_Y_DRAG_THRESHOLD_PX
+        ) {
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
@@ -1170,7 +1194,9 @@ function ChartContainer({
               ? buildSyncedPriceYAxes(yMin, yMax)
               : [{ id: capturedAxisId, min: yMin, max: yMax }];
         }
-        chart.setOption(patch, { lazyUpdate: true });
+        const t0 = performance.now();
+        chart.setOption(patch, { silent: true, lazyUpdate: true });
+        panProbeRef.current.recordPanSetOption(performance.now() - t0);
       });
     };
 
@@ -1179,9 +1205,29 @@ function ChartContainer({
       dragging = false;
       dragOnPriceAxis = false;
       isDraggingRef.current = false;
+      panProbeRef.current.endDrag();
       if (dragRafId !== null) {
         cancelAnimationFrame(dragRafId);
         dragRafId = null;
+      }
+      if (wasDragging && !chart.isDisposed()) {
+        if (panLiteActive) {
+          panLiteActive = false;
+          const optNow = chart.getOption() as Record<string, unknown>;
+          chart.setOption(buildPanLitePatch(optNow, 'exit'), { silent: true, lazyUpdate: true });
+        }
+        const syncPatch = pendingSliderSync
+          ? {
+              dataZoom: [
+                { start: pendingSliderSync.start, end: pendingSliderSync.end },
+                { start: pendingSliderSync.start, end: pendingSliderSync.end },
+              ],
+            }
+          : buildSliderSyncPatch(chart.getOption() as Record<string, unknown>);
+        pendingSliderSync = null;
+        if (syncPatch) {
+          chart.setOption(syncPatch, { silent: true, lazyUpdate: true });
+        }
       }
       // Persist the new zoom/pan window (the autoscale handler skips saving
       // while dragging is in progress).
@@ -2026,6 +2072,7 @@ function ChartContainer({
     };
 
     const scheduleZoomSave = () => {
+      if (isDraggingRef.current || isDrawingInteractionRef.current) return;
       if (zoomSaveTimeout) {
         clearTimeout(zoomSaveTimeout);
       }
