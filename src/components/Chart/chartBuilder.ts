@@ -19,7 +19,7 @@ import {
 import type { SignalConfig, SignalEvent } from '../../utils/signalDetection';
 import { computeAllPearsonChannels, DEFAULT_PEARSON_CONFIGS } from '../../utils/pearsonChannels';
 import type { CMFResult } from '../../utils/indicators';
-import { getChartPerfProfile } from './chartPerf';
+import { getChartPerfProfile, countChartIndicatorLoad, getEffectiveLargeModeThreshold, getHeavyLineSeriesExtras } from './chartPerf';
 
 
 export interface ComputedIndicators {
@@ -613,6 +613,25 @@ export function buildOption(
     lastClose !== null && lastOpen !== null ? (lastClose >= lastOpen ? UP_COLOR : DOWN_COLOR) : tc.text;
 
   const perf = getChartPerfProfile();
+  const visibleSpan = Math.abs(visibleEndValue - visibleStartValue);
+  const indicatorLoad = countChartIndicatorLoad({
+    showBollinger,
+    showRSI,
+    showMACD,
+    showStochRSI,
+    showSuperTrend,
+    showIchimoku,
+    showOBV,
+    showWilliamsPasa,
+    showNizamiCedid,
+    showEMAOverlay,
+    showPearsonChannels,
+    showCMF,
+  });
+  const largeModeThreshold = getEffectiveLargeModeThreshold(indicatorLoad, perf.largeModeThreshold);
+  const heavyLineExtras = getHeavyLineSeriesExtras(
+    indicatorLoad >= 5 || visibleSpan > largeModeThreshold,
+  );
   let regimeAreas: any[] = [];
   if (showEMAOverlay && filtered.length > 21 && !perf.skipEmaRegimeAreas) {
     const closes = filtered.map((d) => d.close);
@@ -649,8 +668,7 @@ export function buildOption(
   // hair-thin anyway — that restores the batched-render performance for the
   // zoomed-out case. The visible span is recomputed live on zoom in the
   // dataZoom handler.
-  const visibleSpan = Math.abs(visibleEndValue - visibleStartValue);
-  const useLargeMode = visibleSpan > perf.largeModeThreshold;
+  const useLargeMode = visibleSpan > largeModeThreshold;
 
   const mainSeries: echarts.SeriesOption = {
     name: symbol,
@@ -1211,6 +1229,7 @@ export function buildOption(
         barWidth: '60%',
         z: 1,
         tooltip: { show: false },
+        ...heavyLineExtras,
       },
       {
         name: 'MACD',
@@ -2142,6 +2161,14 @@ export function buildOption(
       ...subSeries,
       ...drawingsSeries,
   ];
+
+  if (Object.keys(heavyLineExtras).length > 0) {
+    for (const s of chartSeries) {
+      if ((s as { type?: string }).type === 'line') {
+        Object.assign(s, heavyLineExtras);
+      }
+    }
+  }
 
   const drawingsSeriesIdx = chartSeries.findIndex(
     (s) => (s as { name?: string }).name === DRAWINGS_SERIES_NAME,
