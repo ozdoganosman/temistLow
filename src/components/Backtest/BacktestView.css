@@ -1,0 +1,25 @@
+/* Backtest-specific styles -- reuses MarketAnalysis.css classes */
+
+.period-selector {
+  display: flex;
+  gap: 4px;
+  margin-right: 12px;
+}
+
+.signal-toggle {
+  display: flex;
+  gap: 4px;
+  margin-right: 12px;
+}
+
+.signal-toggle .toolbar-btn.bull-active {
+  background: rgba(38, 166, 154, 0.25);
+  border-color: var(--up-color);
+  color: var(--up-color);
+}
+
+.signal-toggle .toolbar-btn.bear-active {
+  background: rgba(239, 83, 80, 0.25);
+  border-color: var(--down-color);
+  color: var(--down-color);
+}

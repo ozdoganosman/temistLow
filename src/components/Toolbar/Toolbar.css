@@ -1,0 +1,162 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-secondary);
+  margin: 0 4px;
+}
+
+.toolbar-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+  color: var(--text-primary);
+  background: var(--border-primary);
+}
+
+.toolbar-btn.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.data-freshness {
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.view-toggle {
+  gap: 2px;
+}
+
+.analysis-btn.active {
+  background: var(--up-color);
+  border-color: var(--up-color);
+}
+
+.multichart-btn.active {
+  background: #7c4dff;
+  border-color: #7c4dff;
+}
+
+.backtest-btn.active {
+  background: #ff6d00;
+  border-color: #ff6d00;
+}
+
+.finansal-btn.active {
+  background: #00897b;
+  border-color: #00897b;
+}
+
+.signal-btn {
+  background: rgba(216, 27, 96, 0.12);
+  color: #d81b60;
+  border: 1px solid #d81b60;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.signal-btn:hover {
+  background: rgba(216, 27, 96, 0.25);
+  color: #d81b60;
+}
+
+.signal-btn.active {
+  background: #d81b60;
+  border-color: #d81b60;
+  color: #fff;
+}
+
+/* Watchlist toggle */
+.watchlist-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+}
+
+/* Watch star button */
+.star-btn {
+  font-size: 18px;
+  padding: 3px 6px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.star-btn.watched {
+  color: #fdd835;
+}
+
+.star-btn:hover {
+  color: #fdd835;
+  background: transparent;
+}
+
+/* Alarm toggle */
+.alarm-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  position: relative;
+  gap: 4px;
+}
+
+.alarm-badge {
+  background: var(--down-color);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* Theme toggle */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  font-size: 16px;
+}
+
+

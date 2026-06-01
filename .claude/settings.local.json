@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npx vitest:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(pip install:*)",
+      "Bash(npm test:*)",
+      "Bash(find C:\\\\Users\\\\pc\\\\Downloads\\\\borsa-master\\\\borsa-master\\\\src:*)",
+      "Bash(wc:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

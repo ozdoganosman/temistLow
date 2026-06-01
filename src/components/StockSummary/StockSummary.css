@@ -1,0 +1,62 @@
+.stock-summary {
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.ss-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ss-symbol {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.ss-name {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ss-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ss-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.ss-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ss-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ss-value.positive {
+  color: var(--up-color);
+}
+
+.ss-value.negative {
+  color: var(--down-color);
+}
+
+@media (max-width: 768px) {
+  .stock-summary {
+    display: none;
+  }
+}
