@@ -550,6 +550,12 @@ export default function ChartContainer({
     selectedDrawingIdRef.current = selectedDrawingId;
   }, [selectedDrawingId]);
 
+  const isDraggingRef = useRef(false);
+  const isDrawingInteractionRef = useRef(false);
+  const perfProfileRef = useRef(getChartPerfProfile());
+  const legendThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLegendRef = useRef<LegendData | null | undefined>(undefined);
+
   // Load drawings from localStorage
   useEffect(() => {
     try {
@@ -771,8 +777,7 @@ export default function ChartContainer({
     let activeYAxisGridIndex = 0;
     // RAF throttle for drag moves
     let dragRafId: number | null = null;
-    // Shared drag flag — read by axisPointer handler to suppress legend updates during pan
-    const isDraggingRef = { current: false };
+    // Shared drag flag — component-level isDraggingRef
 
     // Shift + Drag measurement variables
     let isMeasuring = false;
