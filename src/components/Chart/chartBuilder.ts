@@ -19,6 +19,7 @@ import {
 import type { SignalConfig, SignalEvent } from '../../utils/signalDetection';
 import { computeAllPearsonChannels, DEFAULT_PEARSON_CONFIGS } from '../../utils/pearsonChannels';
 import type { CMFResult } from '../../utils/indicators';
+import { getChartPerfProfile } from './chartPerf';
 
 
 export interface ComputedIndicators {
@@ -92,7 +93,21 @@ export const MAX_PERSISTED_VISIBLE_CANDLE_COUNT = 96;
 // on. Large mode batches rendering (much cheaper) but collapses bodies to ~1px;
 // that's acceptable once this many candles are on screen (bodies would be hair-
 // thin anyway). Below the threshold we keep large:false so bodies stay readable.
-export const LARGE_MODE_VISIBLE_THRESHOLD = 250;
+// Enable ECharts candlestick "large" mode earlier on dense zoom-outs (low-end friendly).
+export const LARGE_MODE_VISIBLE_THRESHOLD = 150;
+
+export const PRICE_Y_AXIS_ID = 'y-axis-price';
+export const DRAWINGS_Y_AXIS_ID = 'y-axis-drawings';
+export const DRAWINGS_SERIES_NAME = 'Çizimler';
+export const DRAWINGS_SERIES_ID = 'series-drawings';
+
+/** Keep price + drawings y-axes in sync (drawings use a hidden duplicate scale). */
+export function buildSyncedPriceYAxes(min: number, max: number): Array<{ id: string; min: number; max: number }> {
+  return [
+    { id: PRICE_Y_AXIS_ID, min, max },
+    { id: DRAWINGS_Y_AXIS_ID, min, max },
+  ];
+}
 
 export function getPaddingCount(dataLen: number, intradayMode = false): number {
   if (intradayMode) return 10;
@@ -597,8 +612,9 @@ export function buildOption(
   const lastPriceColor =
     lastClose !== null && lastOpen !== null ? (lastClose >= lastOpen ? UP_COLOR : DOWN_COLOR) : tc.text;
 
+  const perf = getChartPerfProfile();
   let regimeAreas: any[] = [];
-  if (showEMAOverlay && filtered.length > 21) {
+  if (showEMAOverlay && filtered.length > 21 && !perf.skipEmaRegimeAreas) {
     const closes = filtered.map((d) => d.close);
     regimeAreas = computeEMARegimeAreas(closes, rawDates, padded.offset, total);
   }
@@ -621,31 +637,7 @@ export function buildOption(
     });
   }
 
-  if (drawings && drawings.length > 0) {
-    drawings.forEach((d) => {
-      if (d.type === 'horizontal') {
-        // Guard: skip if startPrice is not a valid finite number
-        if (d.startPrice == null || !isFinite(d.startPrice)) return;
-        const isSelected = d.id === selectedDrawingId;
-        const color = isSelected ? '#ff9800' : '#26a69a';
-        const width = isSelected ? 3 : 2;
-        markLineData.push({
-          yAxis: d.startPrice,
-          lineStyle: { color: color, type: 'solid', width: width },
-          label: {
-            show: true,
-            position: 'end',
-            formatter: () => formatPrice(d.startPrice),
-            backgroundColor: color,
-            color: '#fff',
-            fontSize: 10,
-            padding: [2, 4],
-            borderRadius: 2,
-          },
-        });
-      }
-    });
-  }
+  // User drawings render on a hidden y-axis (custom series), not on candlestick markLine.
 
 
   // ECharts "large" candlestick mode auto-enables when the data length exceeds
@@ -658,7 +650,7 @@ export function buildOption(
   // zoomed-out case. The visible span is recomputed live on zoom in the
   // dataZoom handler.
   const visibleSpan = Math.abs(visibleEndValue - visibleStartValue);
-  const useLargeMode = visibleSpan > LARGE_MODE_VISIBLE_THRESHOLD;
+  const useLargeMode = visibleSpan > perf.largeModeThreshold;
 
   const mainSeries: echarts.SeriesOption = {
     name: symbol,
@@ -780,7 +772,7 @@ export function buildOption(
 
   const yAxes: echarts.YAXisComponentOption[] = [
     {
-      id: 'y-axis-price',
+      id: PRICE_Y_AXIS_ID,
       type: logScale ? 'log' : 'value',
       scale: true,
       min: priceAxisExtent?.min,
@@ -967,6 +959,24 @@ export function buildOption(
     }
   }
 
+  // Hidden price-scale twin for user drawings — decouples custom overlays from the
+  // candlestick / markLine price axis so dataZoom filtering stays cheap.
+  const drawingsYAxisIndex = yAxes.length;
+  yAxes.push({
+    id: DRAWINGS_Y_AXIS_ID,
+    type: logScale ? 'log' : 'value',
+    scale: true,
+    min: priceAxisExtent?.min,
+    max: priceAxisExtent?.max,
+    gridIndex: 0,
+    show: false,
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { show: false },
+    splitLine: { show: false },
+    axisPointer: { show: false },
+  } as echarts.YAXisComponentOption);
+
   // --- Sub panel series ---
   const subSeries: echarts.SeriesOption[] = [];
   const pad = getPaddingCount(filtered.length, intradayMode);
@@ -976,7 +986,8 @@ export function buildOption(
   const emaSeries: echarts.SeriesOption[] = [];
   if (showEMAOverlay && filtered.length > 5) {
     const closes = filtered.map((d) => d.close);
-    const periods = [8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
+    const allEmaPeriods = [8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
+    const periods = perf.emaOverlayPeriods ?? allEmaPeriods;
     const colors = [
       '#8A8E96', // EMA 8 (gray)
       '#af35a3', // EMA 13 (purple)
@@ -1007,7 +1018,7 @@ export function buildOption(
           z: 4,
           connectNulls: false,
           clip: true,
-          sampling: 'average',
+          sampling: perf.lineSampling,
           tooltip: { show: false },
         });
       }
@@ -1122,7 +1133,7 @@ export function buildOption(
       lineStyle: { color: '#E040FB', width: 2 },
       z: 5,
       clip: true,
-      sampling: 'average',
+      sampling: perf.lineSampling,
       tooltip: { show: false },
       markLine: {
         silent: true,
@@ -1211,7 +1222,7 @@ export function buildOption(
         lineStyle: { color: '#2196F3', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1224,7 +1235,7 @@ export function buildOption(
         lineStyle: { color: '#FF6D00', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1267,7 +1278,7 @@ export function buildOption(
         lineStyle: { color: '#2196F3', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
         markLine: {
           silent: true,
@@ -1295,7 +1306,7 @@ export function buildOption(
         lineStyle: { color: '#FF6D00', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
     );
@@ -1324,7 +1335,7 @@ export function buildOption(
         lineStyle: { color: '#26a69a', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1337,7 +1348,7 @@ export function buildOption(
         lineStyle: { color: '#FF6D00', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
     );
@@ -1368,7 +1379,7 @@ export function buildOption(
         lineStyle: { color: '#7E57C2', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
         markLine: {
           silent: true,
@@ -1404,7 +1415,7 @@ export function buildOption(
         lineStyle: { color: '#FF9800', width: 1.5, type: 'dashed' },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       }
     );
@@ -1437,7 +1448,7 @@ export function buildOption(
         lineStyle: { color: '#2196F3', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1450,7 +1461,7 @@ export function buildOption(
         lineStyle: { color: '#FF6D00', width: 2 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1463,7 +1474,7 @@ export function buildOption(
         lineStyle: { color: '#4CAF50', width: 4.5 },
         z: 5,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1517,7 +1528,7 @@ export function buildOption(
         },
         z: 2,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1536,7 +1547,7 @@ export function buildOption(
         },
         z: 2,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1549,7 +1560,7 @@ export function buildOption(
         lineStyle: { color: '#9c27b0', width: 2 },
         z: 3,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
         markLine: {
           silent: true,
@@ -1582,7 +1593,7 @@ export function buildOption(
         lineStyle: { color: '#FF9800', width: 1.2 },
         z: 4,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       },
       {
@@ -1595,25 +1606,27 @@ export function buildOption(
         lineStyle: { color: '#00e5ff', width: 1.2 },
         z: 4,
         clip: true,
-        sampling: 'average',
+        sampling: perf.lineSampling,
         tooltip: { show: false },
       }
     );
   }
 
   const drawingsSeries: echarts.SeriesOption[] = [];
-  if (drawings && drawings.length > 0) {
-    const isDark = tc.bg !== '#ffffff';
-    drawingsSeries.push({
-      name: 'Çizimler',
+  const isDark = tc.bg !== '#ffffff';
+  const drawingsData =
+    drawings && drawings.length > 0 ? drawings : [];
+  drawingsSeries.push({
+      id: DRAWINGS_SERIES_ID,
+      name: DRAWINGS_SERIES_NAME,
       type: 'custom',
       xAxisIndex: 0,
-      yAxisIndex: 0,
+      yAxisIndex: drawingsYAxisIndex,
       z: 30,
-      data: drawings,
+      data: drawingsData,
       silent: true,
       renderItem: (params: any, api: any) => {
-        const item = drawings[params.dataIndex];
+        const item = (params.data ?? drawings[params.dataIndex]) as ChartDrawing;
         if (!item) return null;
 
         let startIdx = item.startBarIdx;
@@ -1682,14 +1695,48 @@ export function buildOption(
           }
           return lineObj;
         } else if (item.type === 'horizontal') {
+          const gridWidth = params.coordSys.width;
+          const gridX = params.coordSys.x;
+          const lineColor = isSelected ? '#ff9800' : '#26a69a';
+          const lineWidth = isSelected ? 3 : 2;
+          const lineObj = {
+            type: 'line',
+            shape: {
+              x1: gridX,
+              y1: startY,
+              x2: gridX + gridWidth,
+              y2: startY,
+            },
+            style: { stroke: lineColor, lineWidth },
+          };
+          const labelObj = {
+            type: 'text',
+            x: gridX + gridWidth - 4,
+            y: startY - 10,
+            style: {
+              text: formatPrice(item.startPrice),
+              fill: '#fff',
+              font: '10px sans-serif',
+              textAlign: 'right',
+              backgroundColor: lineColor,
+              padding: [2, 4],
+            },
+          };
           if (isSelected) {
             return {
-              type: 'circle',
-              shape: { cx: startX, cy: startY, r: 5 },
-              style: { fill: '#ffffff', stroke: '#ff9800', lineWidth: 2 }
+              type: 'group',
+              children: [
+                lineObj,
+                labelObj,
+                {
+                  type: 'circle',
+                  shape: { cx: startX, cy: startY, r: 5 },
+                  style: { fill: '#ffffff', stroke: '#ff9800', lineWidth: 2 },
+                },
+              ],
             };
           }
-          return null;
+          return { type: 'group', children: [lineObj, labelObj] };
         } else if (item.type === 'fibonacci' && item.endPrice !== undefined) {
           const gridWidth = params.coordSys.width;
           const gridX = params.coordSys.x;
@@ -1763,58 +1810,8 @@ export function buildOption(
         return null;
       }
     });
-  }
 
-  return {
-    animation: false,
-    backgroundColor: tc.bg,
-    grid: grids,
-    xAxis: xAxes as echarts.EChartsOption['xAxis'],
-    yAxis: yAxes as echarts.EChartsOption['yAxis'],
-    dataZoom: [
-      {
-        type: 'inside',
-        filterMode: 'none',
-        xAxisIndex: allXAxisIndices,
-        start: (zoomStartValue !== undefined && zoomStartValue !== null) ? undefined : zoomStart,
-        end: (zoomEndValue !== undefined && zoomEndValue !== null) ? undefined : zoomEnd,
-        startValue: (zoomStartValue !== undefined && zoomStartValue !== null) ? zoomStartValue : undefined,
-        endValue: (zoomEndValue !== undefined && zoomEndValue !== null) ? zoomEndValue : undefined,
-        zoomOnMouseWheel: true,
-        moveOnMouseMove: false,
-        moveOnMouseWheel: false,
-        preventDefaultMouseMove: false,
-      },
-      {
-        type: 'slider',
-        filterMode: 'none',
-        xAxisIndex: allXAxisIndices,
-        start: (zoomStartValue !== undefined && zoomStartValue !== null) ? undefined : zoomStart,
-        end: (zoomEndValue !== undefined && zoomEndValue !== null) ? undefined : zoomEnd,
-        startValue: (zoomStartValue !== undefined && zoomStartValue !== null) ? zoomStartValue : undefined,
-        endValue: (zoomEndValue !== undefined && zoomEndValue !== null) ? zoomEndValue : undefined,
-        bottom: 8,
-        height: 20,
-        borderColor: tc.border,
-        backgroundColor: tc.sliderBg,
-        dataBackground: { lineStyle: { color: 'transparent' }, areaStyle: { color: 'transparent' } },
-        selectedDataBackground: { lineStyle: { color: 'transparent' }, areaStyle: { color: 'rgba(41,98,255,0.08)' } },
-        fillerColor: 'rgba(41,98,255,0.15)',
-        handleStyle: { color: '#404555', borderColor: '#606580' },
-        textStyle: { color: tc.text, fontSize: 10 },
-      },
-    ],
-    tooltip: { show: false },
-    axisPointer: {
-      show: true,
-      link: [{ xAxisIndex: allXAxisIndices }],
-      label: { backgroundColor: tc.tooltipBg, color: tc.tooltipText },
-    },
-    graphic:
-      showPearsonChannels && pearsonResults.length > 0
-        ? [buildPearsonTable(pearsonResults, tc, mainBottom + 10)]
-        : undefined,
-    series: [
+  const chartSeries: echarts.SeriesOption[] = [
       { ...mainSeries, xAxisIndex: 0, yAxisIndex: 0 },
       {
         name: 'Volume',
@@ -1854,7 +1851,7 @@ export function buildOption(
                   z: 5,
                   connectNulls: false,
                   clip: true,
-                  sampling: 'average',
+                  sampling: perf.lineSampling,
                   tooltip: { show: false },
                 },
                 {
@@ -1869,7 +1866,7 @@ export function buildOption(
                   z: 5,
                   connectNulls: false,
                   clip: true,
-                  sampling: 'average',
+                  sampling: perf.lineSampling,
                   tooltip: { show: false },
                 },
                 {
@@ -1884,7 +1881,7 @@ export function buildOption(
                   z: 5,
                   connectNulls: false,
                   clip: true,
-                  sampling: 'average',
+                  sampling: perf.lineSampling,
                   tooltip: { show: false },
                 },
               );
@@ -1995,7 +1992,7 @@ export function buildOption(
                 z: 5,
                 silent: true,
                 clip: true,
-                sampling: 'average',
+                sampling: perf.lineSampling,
                 tooltip: { show: false },
               },
               {
@@ -2009,7 +2006,7 @@ export function buildOption(
                 z: 5,
                 silent: true,
                 clip: true,
-                sampling: 'average',
+                sampling: perf.lineSampling,
                 tooltip: { show: false },
               },
               {
@@ -2144,8 +2141,96 @@ export function buildOption(
       ...pearsonSeries,
       ...subSeries,
       ...drawingsSeries,
-    ],
+  ];
+
+  const drawingsSeriesIdx = chartSeries.findIndex(
+    (s) => (s as { name?: string }).name === DRAWINGS_SERIES_NAME,
+  );
+  const dataZoomSeriesIndex =
+    drawingsSeriesIdx === -1
+      ? undefined
+      : chartSeries.map((_, i) => i).filter((i) => i !== drawingsSeriesIdx);
+
+  const zoomStartOpt =
+    zoomStartValue !== undefined && zoomStartValue !== null ? undefined : zoomStart;
+  const zoomEndOpt = zoomEndValue !== undefined && zoomEndValue !== null ? undefined : zoomEnd;
+  const zoomStartValueOpt =
+    zoomStartValue !== undefined && zoomStartValue !== null ? zoomStartValue : undefined;
+  const zoomEndValueOpt =
+    zoomEndValue !== undefined && zoomEndValue !== null ? zoomEndValue : undefined;
+
+  const dataZoomShared = {
+    filterMode: 'filter' as const,
+    xAxisIndex: allXAxisIndices,
+    start: zoomStartOpt,
+    end: zoomEndOpt,
+    startValue: zoomStartValueOpt,
+    endValue: zoomEndValueOpt,
+    ...(dataZoomSeriesIndex ? { seriesIndex: dataZoomSeriesIndex } : {}),
   };
+
+  return {
+    animation: false,
+    backgroundColor: tc.bg,
+    grid: grids,
+    xAxis: xAxes as echarts.EChartsOption['xAxis'],
+    yAxis: yAxes as echarts.EChartsOption['yAxis'],
+    dataZoom: [
+      {
+        type: 'inside',
+        ...dataZoomShared,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: false,
+        moveOnMouseWheel: false,
+        preventDefaultMouseMove: false,
+      },
+      {
+        type: 'slider',
+        ...dataZoomShared,
+        bottom: 8,
+        height: 20,
+        borderColor: tc.border,
+        backgroundColor: tc.sliderBg,
+        dataBackground: { lineStyle: { color: 'transparent' }, areaStyle: { color: 'transparent' } },
+        selectedDataBackground: { lineStyle: { color: 'transparent' }, areaStyle: { color: 'rgba(41,98,255,0.08)' } },
+        fillerColor: 'rgba(41,98,255,0.15)',
+        handleStyle: { color: '#404555', borderColor: '#606580' },
+        textStyle: { color: tc.text, fontSize: 10 },
+      },
+    ],
+    tooltip: { show: false },
+    axisPointer: {
+      show: true,
+      link: [{ xAxisIndex: allXAxisIndices }],
+      label: { backgroundColor: tc.tooltipBg, color: tc.tooltipText },
+    },
+    graphic:
+      showPearsonChannels && pearsonResults.length > 0
+        ? [buildPearsonTable(pearsonResults, tc, mainBottom + 10)]
+        : undefined,
+    series: chartSeries,
+  };
+}
+
+export function patchDrawingsOnChart(
+  chart: echarts.ECharts,
+  drawings: ChartDrawing[],
+  activeDrawing?: ChartDrawing | null,
+  selectedDrawingId?: string | null,
+): void {
+  if (chart.isDisposed()) return;
+  const merged = activeDrawing ? [...drawings, activeDrawing] : drawings;
+  chart.setOption(
+    {
+      series: [
+        {
+          id: DRAWINGS_SERIES_ID,
+          data: merged,
+        },
+      ],
+    },
+    { lazyUpdate: true },
+  );
 }
 
 export function buildTitlesOption(
