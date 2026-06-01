@@ -1,20 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { buildDataZoomValuePatch, readDataZoomWindow } from './chartZoom';
+import {
+  buildDataZoomPercentPatch,
+  readDataZoomWindow,
+  shiftDataZoomPercent,
+} from './chartZoom';
 
 describe('chartZoom', () => {
-  it('reads bar-index window from percent dataZoom', () => {
+  it('reads percent window from dataZoom', () => {
     const win = readDataZoomWindow({
-      dataZoom: [{ start: 0, end: 50 }],
-      xAxis: [{ data: new Array(100).fill(0) }],
+      dataZoom: [{ start: 10, end: 60 }],
+      xAxis: [{ data: new Array(200).fill(0) }],
     });
-    expect(win.startValue).toBe(0);
-    expect(win.endValue).toBe(50);
-    expect(win.xLen).toBe(100);
+    expect(win.start).toBe(10);
+    expect(win.end).toBe(60);
+    expect(win.xLen).toBe(200);
   });
 
-  it('builds paired value patches for inside + slider', () => {
-    const patch = buildDataZoomValuePatch(10, 90);
+  it('shifts percent window on pan', () => {
+    const win = readDataZoomWindow({
+      dataZoom: [{ start: 20, end: 40 }],
+      xAxis: [{ data: new Array(100).fill(0) }],
+    });
+    const next = shiftDataZoomPercent(win, 50, 500);
+    expect(next.start).toBeLessThan(20);
+    expect(next.end).toBeLessThan(40);
+  });
+
+  it('builds paired percent patches', () => {
+    const patch = buildDataZoomPercentPatch(5, 55);
     expect(patch).toHaveLength(2);
-    expect(patch[0]).toEqual({ startValue: 10, endValue: 90 });
+    expect(patch[0]).toEqual({ start: 5, end: 55 });
   });
 });

@@ -49,7 +49,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
 import { getChartPerfProfile, countChartIndicatorLoad, getEffectiveLargeModeThreshold } from './chartPerf';
-import { readDataZoomWindow, buildDataZoomValuePatch } from './chartZoom';
+import { readDataZoomWindow, buildDataZoomPercentPatch, shiftDataZoomPercent } from './chartZoom';
 import { useDeferredChartFlags } from './useDeferredChartFlags';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
@@ -577,7 +577,6 @@ function ChartContainer({
   const pendingLegendRef = useRef<LegendData | null | undefined>(undefined);
   const suppressChartSideEffectsRef = useRef(false);
   const indicatorLoadRef = useRef(0);
-  const panFrameSkipRef = useRef(0);
 
   // Load drawings from localStorage
   useEffect(() => {
@@ -804,10 +803,7 @@ function ChartContainer({
     let activeYAxisGridIndex = 0;
     // RAF throttle for drag moves
     let dragRafId: number | null = null;
-    let startZoomStartValue = 0;
-    let startZoomEndValue = 0;
-    let zoomWindowSpan = 0;
-    let zoomWin = { startValue: 0, endValue: 0, xLen: 0 };
+    let zoomWin = { start: 0, end: 100, startValue: 0, endValue: 0, xLen: 0 };
     // Shared drag flag — component-level isDraggingRef
 
     // Shift + Drag measurement variables
@@ -1082,14 +1078,10 @@ function ChartContainer({
         }
       }
 
-      startZoomStart = opt.dataZoom?.[0]?.start ?? 0;
-      startZoomEnd = opt.dataZoom?.[0]?.end ?? 100;
       zoomWin = readDataZoomWindow(opt);
-      startZoomStartValue = zoomWin.startValue;
-      startZoomEndValue = zoomWin.endValue;
-      zoomWindowSpan = startZoomEndValue - startZoomStartValue;
+      startZoomStart = zoomWin.start;
+      startZoomEnd = zoomWin.end;
       suppressChartSideEffectsRef.current = true;
-      panFrameSkipRef.current = 0;
       chart.setOption({ axisPointer: { show: false } }, { lazyUpdate: true });
 
       activeYAxisIdx = 0;
@@ -1150,10 +1142,6 @@ function ChartContainer({
 
       const dx = clientX - dragStartX;
       const pxRange = rect.width;
-      const zoomRange = startZoomEnd - startZoomStart;
-      const shift = -(dx / pxRange) * zoomRange;
-      const newStart = startZoomStart + shift;
-      const newEnd = startZoomEnd + shift;
 
       // Capture for RAF closure
       const capturedAxisId = activeYAxisId;
@@ -1166,43 +1154,30 @@ function ChartContainer({
       if (dragRafId !== null) return;
       dragRafId = requestAnimationFrame(() => {
         dragRafId = null;
-        const load = indicatorLoadRef.current;
-        if (load >= 6) {
-          panFrameSkipRef.current = (panFrameSkipRef.current + 1) % 2;
-          if (panFrameSkipRef.current === 1) return;
-        }
-        const optNow = chart.getOption() as any;
-        const xLen = optNow?.xAxis?.[0]?.data?.length ?? zoomWin.xLen;
-        const shiftBars = Math.round(-(dx / pxRange) * zoomWindowSpan);
-        let newStartValue = startZoomStartValue + shiftBars;
-        let newEndValue = startZoomEndValue + shiftBars;
-        const maxIdx = Math.max(0, xLen - 1);
-        if (newStartValue < 0) {
-          newEndValue -= newStartValue;
-          newStartValue = 0;
-        }
-        if (newEndValue > maxIdx) {
-          newStartValue -= newEndValue - maxIdx;
-          newEndValue = maxIdx;
-        }
-        newStartValue = Math.max(0, newStartValue);
+        const { start: newStart, end: newEnd } = shiftDataZoomPercent(zoomWin, dx, pxRange);
+        if (Math.abs(newEnd - newStart) < 0.01) return;
 
-        const patch: Record<string, unknown> = {
-          dataZoom: buildDataZoomValuePatch(newStartValue, newEndValue),
-        };
-        const allowYpan = Math.abs(dy) >= 8 && load < 8;
+        chart.dispatchAction({ type: 'dataZoom', dataZoomIndex: 0, start: newStart, end: newEnd });
+        chart.dispatchAction({ type: 'dataZoom', dataZoomIndex: 1, start: newStart, end: newEnd });
+
+        const load = indicatorLoadRef.current;
+        const allowYpan = Math.abs(dy) >= 10 && load < 10;
         if (allowYpan && capturedAxisId && capturedAxisId !== '') {
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
           const yMin = capturedYMin + yShift;
           const yMax = capturedYMax + yShift;
-          patch.yAxis =
-            capturedAxisId === PRICE_Y_AXIS_ID
-              ? buildSyncedPriceYAxes(yMin, yMax)
-              : [{ id: capturedAxisId, min: yMin, max: yMax }];
+          chart.setOption(
+            {
+              yAxis:
+                capturedAxisId === PRICE_Y_AXIS_ID
+                  ? buildSyncedPriceYAxes(yMin, yMax)
+                  : [{ id: capturedAxisId, min: yMin, max: yMax }],
+            },
+            { lazyUpdate: true },
+          );
         }
-        chart.setOption(patch, { lazyUpdate: true, replaceMerge: ['dataZoom', 'yAxis'] });
       });
     };
 
