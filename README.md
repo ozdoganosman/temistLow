@@ -30,15 +30,20 @@ Borsa İstanbul (BIST) hisse senetleri için özelleştirilmiş teknik indikatö
 
 ## GitHub Pages deploy
 
-Site otomatik olarak `main` branch'ine her push'ta [Deploy to GitHub Pages](.github/workflows/deploy.yml) workflow'u ile yayınlanır.
+Her `main` push'unda [Deploy to GitHub Pages](.github/workflows/deploy.yml) workflow'u `dist/` çıktısını **`gh-pages`** branch'ine yükler.
 
-**İlk kurulum (bir kez):**
+**İlk kurulum (bir kez — "There isn't a GitHub Pages site here" görüyorsanız):**
 
 1. [Repository → Settings → Pages](https://github.com/ozdoganosman/temistLow/settings/pages)
-2. **Build and deployment → Source:** `GitHub Actions`
-3. Son başarısız deploy varsa: **Actions → Deploy to GitHub Pages → Re-run all jobs**
+2. **Build and deployment → Source:** `Deploy from a branch`
+3. **Branch:** `gh-pages` · **Folder:** `/ (root)` · **Save**
+4. **Actions → Deploy to GitHub Pages → Run workflow** (veya `main`'e küçük bir commit atın)
+
+1–2 dakika sonra site açılır.
 
 **URL:** https://ozdoganosman.github.io/temistLow/
+
+> `contentscript.js` / `ObjectMultiplex` konsol uyarıları tarayıcı eklentisinden (ör. MetaMask) gelir; uygulama kaynaklı değildir.
 
 
 ---
