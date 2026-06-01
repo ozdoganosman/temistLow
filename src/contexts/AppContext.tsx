@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useCallback, useState, useEffect, startTransition, type ReactNode } from 'react';
 
 // ── State ──
 interface IndicatorState {
@@ -67,7 +67,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
 
   const toggle = useCallback((key: ToggleKey) => {
-    dispatch({ type: 'TOGGLE', key });
+    startTransition(() => {
+      dispatch({ type: 'TOGGLE', key });
+    });
   }, []);
 
   const toggleTheme = useCallback(() => {

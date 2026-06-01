@@ -29,6 +29,7 @@
 }
 
 .toolbar-btn {
+  touch-action: manipulation;
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid transparent;

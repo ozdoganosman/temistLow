@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import * as echarts from 'echarts';
 import type { Interval, LegendData, ActiveDrawingTool, ChartDrawing } from './types';
 import type { OHLCVData, AllFinancialsResponse } from '../../api/borsaApi';
@@ -49,6 +49,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
 import { getChartPerfProfile } from './chartPerf';
+import { useDeferredChartFlags } from './useDeferredChartFlags';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
 void buildSignalScatterSeries;
@@ -116,7 +117,7 @@ interface ChartContainerProps {
   showCommentary?: boolean;
 }
 
-export default function ChartContainer({
+function ChartContainer({
   data,
   symbol,
   interval,
@@ -140,6 +141,24 @@ export default function ChartContainer({
 }: ChartContainerProps) {
   const { theme } = useTheme();
   const filtered = data;
+
+  const chartFlags = useDeferredChartFlags({
+    showBollinger,
+    showRSI,
+    showMACD,
+    showStochRSI,
+    showSuperTrend,
+    showIchimoku,
+    showOBV,
+    showWilliamsPasa,
+    showNizamiCedid,
+    showEMAOverlay,
+    showPearsonChannels,
+    showCMF,
+    showSignals,
+    logScale,
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const measureOverlayRef = useRef<HTMLDivElement>(null);
   const measureBadgeRef = useRef<HTMLDivElement>(null);
@@ -170,7 +189,7 @@ export default function ChartContainer({
     const lastPrice = closes[n - 1];
 
     // 1. Bollinger Bands
-    if (showBollinger && n >= 20) {
+    if (chartFlags.showBollinger && n >= 20) {
       const bb = computeBollingerBands(closes);
       const upper = bb.upper[n - 1];
       const middle = bb.middle[n - 1];
@@ -206,7 +225,7 @@ export default function ChartContainer({
     }
 
     // 2. RSI
-    if (showRSI && n >= 15) {
+    if (chartFlags.showRSI && n >= 15) {
       const rsiRes = computeRSI(closes, 14);
       const rsiVal = rsiRes.rsi[n - 1];
       if (rsiVal !== null) {
@@ -232,7 +251,7 @@ export default function ChartContainer({
     }
 
     // 3. MACD
-    if (showMACD && n >= 26) {
+    if (chartFlags.showMACD && n >= 26) {
       const macdRes = computeMACD(closes);
       const mVal = macdRes.macd[n - 1];
       const sVal = macdRes.signal[n - 1];
@@ -251,7 +270,7 @@ export default function ChartContainer({
     }
 
     // 4. Stochastic RSI
-    if (showStochRSI && n >= 28) {
+    if (chartFlags.showStochRSI && n >= 28) {
       const stochRes = computeStochRSI(closes);
       const kVal = stochRes.k[n - 1];
       const dVal = stochRes.d[n - 1];
@@ -281,7 +300,7 @@ export default function ChartContainer({
     }
 
     // 5. SuperTrend
-    if (showSuperTrend && n >= 11) {
+    if (chartFlags.showSuperTrend && n >= 11) {
       const stRes = computeSuperTrend(highs, lows, closes);
       const stVal = stRes.supertrend[n - 1];
       const dirVal = stRes.direction[n - 1];
@@ -300,7 +319,7 @@ export default function ChartContainer({
     }
 
     // 6. Ichimoku Cloud
-    if (showIchimoku && n >= 52) {
+    if (chartFlags.showIchimoku && n >= 52) {
       const ichRes = computeIchimoku(highs, lows, closes);
       const tenkanVal = ichRes.tenkan[n - 1];
       const kijunVal = ichRes.kijun[n - 1];
@@ -333,7 +352,7 @@ export default function ChartContainer({
     }
 
     // 7. OBV
-    if (showOBV && n >= 20) {
+    if (chartFlags.showOBV && n >= 20) {
       const obvRes = computeOBV(closes, volumes);
       const obvVal = obvRes.obv[n - 1];
       const emaVal = obvRes.obvEma[n - 1];
@@ -352,7 +371,7 @@ export default function ChartContainer({
     }
 
     // 8. Williams Paşa
-    if (showWilliamsPasa && n >= 260) {
+    if (chartFlags.showWilliamsPasa && n >= 260) {
       const wpRes = computeWilliamsPasa(highs, lows, closes);
       const wpVal = wpRes.percentR[n - 1];
       const emaVal = wpRes.emaWil[n - 1];
@@ -382,7 +401,7 @@ export default function ChartContainer({
     }
 
     // 9. Nizami Cedid
-    if (showNizamiCedid && n >= 260) {
+    if (chartFlags.showNizamiCedid && n >= 260) {
       const ncRes = computeNizamiCedid(closes, volumes);
       const deltaVal = ncRes.delta[n - 1];
       if (deltaVal !== null) {
@@ -402,7 +421,7 @@ export default function ChartContainer({
     }
 
     // 10. EMA Overlay
-    if (showEMAOverlay && n >= 21) {
+    if (chartFlags.showEMAOverlay && n >= 21) {
       const ribbon = calculateEMARibbonLast(closes);
       const spread = ribbon.spread;
       const signal = ribbon.signal;
@@ -423,7 +442,7 @@ export default function ChartContainer({
     }
 
     // 11. Pearson Channels
-    if (showPearsonChannels && n >= 21) {
+    if (chartFlags.showPearsonChannels && n >= 21) {
       const pResults = computeAllPearsonChannels(closes);
       for (const ch of pResults) {
         const pos = ch.rmse > 0 ? (lastPrice - ch.B) / ch.rmse : 0;
@@ -459,7 +478,7 @@ export default function ChartContainer({
 
 
     // 12. Chaikin Money Flow (CMF)
-    if (showCMF && n >= 20) {
+    if (chartFlags.showCMF && n >= 20) {
       const cmfRes = computeCMF(highs, lows, closes, volumes, 20);
       const cmfVal = cmfRes.cmf[n - 1];
       if (cmfVal !== null) {
@@ -490,18 +509,18 @@ export default function ChartContainer({
     return items;
   }, [
     filtered,
-    showBollinger,
-    showRSI,
-    showMACD,
-    showStochRSI,
-    showSuperTrend,
-    showIchimoku,
-    showOBV,
-    showWilliamsPasa,
-    showNizamiCedid,
-    showEMAOverlay,
-    showPearsonChannels,
-    showCMF,
+    chartFlags.showBollinger,
+    chartFlags.showRSI,
+    chartFlags.showMACD,
+    chartFlags.showStochRSI,
+    chartFlags.showSuperTrend,
+    chartFlags.showIchimoku,
+    chartFlags.showOBV,
+    chartFlags.showWilliamsPasa,
+    chartFlags.showNizamiCedid,
+    chartFlags.showEMAOverlay,
+    chartFlags.showPearsonChannels,
+    chartFlags.showCMF,
   ]);
 
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
@@ -589,13 +608,13 @@ export default function ChartContainer({
     }
   };
 
-  const showRSIRef = useRef(showRSI);
-  const showMACDRef = useRef(showMACD);
-  const showStochRSIRef = useRef(showStochRSI);
-  const showOBVRef = useRef(showOBV);
-  const showWilliamsPasaRef = useRef(showWilliamsPasa);
-  const showNizamiCedidRef = useRef(showNizamiCedid);
-  const showCMFRef = useRef(showCMF);
+  const showRSIRef = useRef(chartFlags.showRSI);
+  const showMACDRef = useRef(chartFlags.showMACD);
+  const showStochRSIRef = useRef(chartFlags.showStochRSI);
+  const showOBVRef = useRef(chartFlags.showOBV);
+  const showWilliamsPasaRef = useRef(chartFlags.showWilliamsPasa);
+  const showNizamiCedidRef = useRef(chartFlags.showNizamiCedid);
+  const showCMFRef = useRef(chartFlags.showCMF);
   const signalConfigRef = useRef(signalConfig);
   const themeColorsRef = useRef<any>(null);
   const subPanelsRef = useRef<string[]>([]);
@@ -657,13 +676,13 @@ export default function ChartContainer({
 
   const { subPanels, panelBottoms } = useMemo(() => {
     const panels: string[] = [];
-    if (showRSI) panels.push('rsi');
-    if (showMACD) panels.push('macd');
-    if (showStochRSI) panels.push('stochRsi');
-    if (showOBV) panels.push('obv');
-    if (showWilliamsPasa) panels.push('williams_pasa');
-    if (showNizamiCedid) panels.push('nizami_cedid');
-    if (showCMF) panels.push('cmf');
+    if (chartFlags.showRSI) panels.push('rsi');
+    if (chartFlags.showMACD) panels.push('macd');
+    if (chartFlags.showStochRSI) panels.push('stochRsi');
+    if (chartFlags.showOBV) panels.push('obv');
+    if (chartFlags.showWilliamsPasa) panels.push('williams_pasa');
+    if (chartFlags.showNizamiCedid) panels.push('nizami_cedid');
+    if (chartFlags.showCMF) panels.push('cmf');
 
     const bottoms: number[] = [];
     let currentBottom = 40;
@@ -673,20 +692,20 @@ export default function ChartContainer({
       currentBottom += h + 10;
     }
     return { subPanels: panels, panelBottoms: bottoms };
-  }, [showRSI, showMACD, showStochRSI, showOBV, showWilliamsPasa, showNizamiCedid, showCMF, panelHeights]);
+  }, [chartFlags.showRSI, chartFlags.showMACD, chartFlags.showStochRSI, chartFlags.showOBV, chartFlags.showWilliamsPasa, chartFlags.showNizamiCedid, chartFlags.showCMF, panelHeights]);
 
   useEffect(() => {
     subPanelsRef.current = subPanels;
     panelBottomsRef.current = panelBottoms;
   }, [subPanels, panelBottoms]);
 
-  useEffect(() => { showRSIRef.current = showRSI; }, [showRSI]);
-  useEffect(() => { showMACDRef.current = showMACD; }, [showMACD]);
-  useEffect(() => { showStochRSIRef.current = showStochRSI; }, [showStochRSI]);
-  useEffect(() => { showOBVRef.current = showOBV; }, [showOBV]);
-  useEffect(() => { showWilliamsPasaRef.current = showWilliamsPasa; }, [showWilliamsPasa]);
-  useEffect(() => { showNizamiCedidRef.current = showNizamiCedid; }, [showNizamiCedid]);
-  useEffect(() => { showCMFRef.current = showCMF; }, [showCMF]);
+  useEffect(() => { showRSIRef.current = chartFlags.showRSI; }, [chartFlags.showRSI]);
+  useEffect(() => { showMACDRef.current = chartFlags.showMACD; }, [chartFlags.showMACD]);
+  useEffect(() => { showStochRSIRef.current = chartFlags.showStochRSI; }, [chartFlags.showStochRSI]);
+  useEffect(() => { showOBVRef.current = chartFlags.showOBV; }, [chartFlags.showOBV]);
+  useEffect(() => { showWilliamsPasaRef.current = chartFlags.showWilliamsPasa; }, [chartFlags.showWilliamsPasa]);
+  useEffect(() => { showNizamiCedidRef.current = chartFlags.showNizamiCedid; }, [chartFlags.showNizamiCedid]);
+  useEffect(() => { showCMFRef.current = chartFlags.showCMF; }, [chartFlags.showCMF]);
   useEffect(() => { signalConfigRef.current = signalConfig; }, [signalConfig]);
 
   const computedIndicatorsRef = useRef<ComputedIndicators>({});
@@ -713,18 +732,18 @@ export default function ChartContainer({
 
   // Compute combined signal events for scatter markers
   const signalEvents = useMemo<SignalEvent[]>(() => {
-    if (!showSignals || filtered.length < 60) return [];
+    if (!chartFlags.showSignals || filtered.length < 60) return [];
     const cfg = signalConfig ?? DEFAULT_SIGNAL_CONFIG;
     const combined = computeCombinedSignals(filtered, cfg);
     return extractCombinedSignalEvents(combined, filtered);
-  }, [filtered, showSignals, signalConfig]);
+  }, [filtered, chartFlags.showSignals, signalConfig]);
 
   // Compute Bollinger overlay values for display table
   const bollingerResults = useMemo<BollingerOverlayResult[]>(() => {
-    if (!showBollinger || filtered.length < 20) return [];
+    if (!chartFlags.showBollinger || filtered.length < 20) return [];
     const closePrices = filtered.map((d) => d.close);
     return computeAllBollingerOverlays(closePrices);
-  }, [filtered, showBollinger]);
+  }, [filtered, chartFlags.showBollinger]);
 
   void bollingerResults; // used internally by buildOption
 
@@ -732,7 +751,11 @@ export default function ChartContainer({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas', useDirtyRect: true });
+    const chart = echarts.init(containerRef.current, undefined, {
+      renderer: 'canvas',
+      useDirtyRect: true,
+      hoverLayerThreshold: 800,
+    });
     chartInstanceRef.current = chart;
 
     const handleResize = () => chart.resize();
@@ -2178,43 +2201,43 @@ export default function ChartContainer({
     const lows = filtered.map((d) => d.low);
     const closes = filtered.map((d) => d.close);
     const volumes = filtered.map((d) => d.volume);
-    const cmfResult = showCMF && filtered.length > 20 ? computeCMF(highs, lows, closes, volumes, 20) : null;
+    const cmfResult = chartFlags.showCMF && filtered.length > 20 ? computeCMF(highs, lows, closes, volumes, 20) : null;
 
     const computed: ComputedIndicators = {};
-    if (showRSI && filtered.length > 15) {
+    if (chartFlags.showRSI && filtered.length > 15) {
       const period = signalConfig?.rsi?.period ?? 14;
       computed.rsi = computeRSI(closes, period).rsi;
     }
-    if (showMACD && filtered.length > 35) {
+    if (chartFlags.showMACD && filtered.length > 35) {
       const fast = signalConfig?.macd?.fast ?? 12;
       const slow = signalConfig?.macd?.slow ?? 26;
       const sigPeriod = signalConfig?.macd?.signalPeriod ?? 9;
       computed.macd = computeMACD(closes, fast, slow, sigPeriod);
     }
-    if (showStochRSI && filtered.length > 30) {
+    if (chartFlags.showStochRSI && filtered.length > 30) {
       const rsiP = signalConfig?.stochRsi?.rsiPeriod ?? 14;
       const stochP = signalConfig?.stochRsi?.stochPeriod ?? 14;
       const kS = signalConfig?.stochRsi?.kSmooth ?? 3;
       const dS = signalConfig?.stochRsi?.dSmooth ?? 3;
       computed.stochRsi = computeStochRSI(closes, rsiP, stochP, kS, dS);
     }
-    if (showOBV && filtered.length > 20) {
+    if (chartFlags.showOBV && filtered.length > 20) {
       const emaPeriod = signalConfig?.obv?.emaPeriod ?? 20;
       computed.obv = computeOBV(closes, volumes, emaPeriod);
     }
-    if (showWilliamsPasa && filtered.length > 260) {
+    if (chartFlags.showWilliamsPasa && filtered.length > 260) {
       const length = signalConfig?.williamsPasa?.length ?? 260;
       const emaLen = signalConfig?.williamsPasa?.emaLen ?? 260;
       computed.williamsPasa = computeWilliamsPasa(highs, lows, closes, length, emaLen);
     }
-    if (showNizamiCedid && filtered.length > 260) {
+    if (chartFlags.showNizamiCedid && filtered.length > 260) {
       const fast = signalConfig?.nizamiCedid?.fast ?? 120;
       const slow = signalConfig?.nizamiCedid?.slow ?? 260;
       const signalLen = signalConfig?.nizamiCedid?.signalLen ?? 50;
       const vwmaLen = signalConfig?.nizamiCedid?.vwmaLen ?? 185;
       computed.nizamiCedid = computeNizamiCedid(closes, volumes, fast, slow, signalLen, vwmaLen);
     }
-    if (showCMF && cmfResult) {
+    if (chartFlags.showCMF && cmfResult) {
       const ema130Cmf = ema(cmfResult.cmf, 130);
       const ema260Cmf = ema(cmfResult.cmf, 260);
       computed.cmf = {
@@ -2229,24 +2252,24 @@ export default function ChartContainer({
     const newOption = buildOption(
       filtered,
       symbol,
-      showBollinger,
+      chartFlags.showBollinger,
       visibleBollinger,
-      showRSI,
-      showMACD,
-      showStochRSI,
+      chartFlags.showRSI,
+      chartFlags.showMACD,
+      chartFlags.showStochRSI,
       logScale,
       themeColors,
       signalEvents,
       signalConfig,
-      showSuperTrend,
-      showIchimoku,
-      showOBV,
+      chartFlags.showSuperTrend,
+      chartFlags.showIchimoku,
+      chartFlags.showOBV,
       interval,
-      showWilliamsPasa,
-      showNizamiCedid,
-      showEMAOverlay,
-      showPearsonChannels,
-      showCMF,
+      chartFlags.showWilliamsPasa,
+      chartFlags.showNizamiCedid,
+      chartFlags.showEMAOverlay,
+      chartFlags.showPearsonChannels,
+      chartFlags.showCMF,
       cmfResult,
       null,
       computed,
@@ -2303,19 +2326,19 @@ export default function ChartContainer({
     filtered,
     symbol,
     interval,
-    showBollinger,
+    chartFlags.showBollinger,
     visibleBollinger,
-    showRSI,
-    showMACD,
-    showStochRSI,
-    showSuperTrend,
-    showIchimoku,
-    showOBV,
-    showWilliamsPasa,
-    showNizamiCedid,
-    showEMAOverlay,
-    showPearsonChannels,
-    showCMF,
+    chartFlags.showRSI,
+    chartFlags.showMACD,
+    chartFlags.showStochRSI,
+    chartFlags.showSuperTrend,
+    chartFlags.showIchimoku,
+    chartFlags.showOBV,
+    chartFlags.showWilliamsPasa,
+    chartFlags.showNizamiCedid,
+    chartFlags.showEMAOverlay,
+    chartFlags.showPearsonChannels,
+    chartFlags.showCMF,
     logScale,
     signalEvents,
     signalConfig,
@@ -2326,8 +2349,21 @@ export default function ChartContainer({
     selectedDrawingId,
   ]);
 
+  const updateChartRafRef = useRef<number | null>(null);
   useEffect(() => {
-    updateChart();
+    if (updateChartRafRef.current !== null) {
+      cancelAnimationFrame(updateChartRafRef.current);
+    }
+    updateChartRafRef.current = requestAnimationFrame(() => {
+      updateChartRafRef.current = null;
+      updateChart();
+    });
+    return () => {
+      if (updateChartRafRef.current !== null) {
+        cancelAnimationFrame(updateChartRafRef.current);
+        updateChartRafRef.current = null;
+      }
+    };
   }, [updateChart]);
 
   return (
@@ -2419,3 +2455,5 @@ export default function ChartContainer({
     </div>
   );
 }
+
+export default memo(ChartContainer);
