@@ -17,7 +17,11 @@ import {
   MAX_PERSISTED_VISIBLE_CANDLE_COUNT,
   LARGE_MODE_VISIBLE_THRESHOLD,
   RIGHT_PAD_BARS,
+  PRICE_Y_AXIS_ID,
   buildOption,
+  buildSyncedPriceYAxes,
+  patchDrawingsOnChart,
+  PRICE_Y_AXIS_ID,
   computeVisiblePriceExtent,
   getThemeColors,
   getPaddingCount,
@@ -44,6 +48,7 @@ import { formatVolume } from '../../utils/formatters';
 import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
+import { getChartPerfProfile } from './chartPerf';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
 void buildSignalScatterSeries;
@@ -721,7 +726,7 @@ export default function ChartContainer({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' });
+    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas', useDirtyRect: true });
     chartInstanceRef.current = chart;
 
     const handleResize = () => chart.resize();
@@ -1084,7 +1089,14 @@ export default function ChartContainer({
           const mid = (capturedYMin + capturedYMax) / 2;
           const scaleFactor = 1 + (dy / gridHeight) * 2;
           const newHalf = (yRange / 2) * Math.max(0.1, scaleFactor);
-          chart.setOption({ yAxis: [{ id: capturedAxisId, min: mid - newHalf, max: mid + newHalf }] });
+          const yMin = mid - newHalf;
+          const yMax = mid + newHalf;
+          chart.setOption({
+            yAxis:
+              capturedAxisId === PRICE_Y_AXIS_ID
+                ? buildSyncedPriceYAxes(yMin, yMax)
+                : [{ id: capturedAxisId, min: yMin, max: yMax }],
+          });
         });
         return;
       }
@@ -1124,9 +1136,14 @@ export default function ChartContainer({
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
-          patch.yAxis = [{ id: capturedAxisId, min: capturedYMin + yShift, max: capturedYMax + yShift }];
+          const yMin = capturedYMin + yShift;
+          const yMax = capturedYMax + yShift;
+          patch.yAxis =
+            capturedAxisId === PRICE_Y_AXIS_ID
+              ? buildSyncedPriceYAxes(yMin, yMax)
+              : [{ id: capturedAxisId, min: yMin, max: yMax }];
         }
-        chart.setOption(patch);
+        chart.setOption(patch, { lazyUpdate: true });
       });
     };
 
@@ -1156,7 +1173,7 @@ export default function ChartContainer({
         let startPrice = 0;
         let startBarIdx = 0;
         try {
-          startPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+          startPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
           startBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
         } catch (err) {
           console.error(err);
@@ -1220,7 +1237,7 @@ export default function ChartContainer({
 
         // Convert pixels to chart coordinates
         try {
-          measureStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+          measureStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
           measureStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
         } catch (err) {
           console.error('ECharts convertFromPixel error:', err);
@@ -1270,7 +1287,7 @@ export default function ChartContainer({
         let newStartPrice = drag.startDrawing.startPrice;
         let newStartBarIdx = drag.startDrawing.startBarIdx;
         try {
-          newStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newStartPixel[1]);
+          newStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newStartPixel[1]);
           newStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newStartPixel[0]));
         } catch (err) {
           // ignore
@@ -1280,7 +1297,7 @@ export default function ChartContainer({
         let newEndBarIdx = drag.startDrawing.endBarIdx;
         if (drag.startDrawing.endPrice !== undefined) {
           try {
-            newEndPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newEndPixel[1]);
+            newEndPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newEndPixel[1]);
             newEndBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newEndPixel[0]));
           } catch (err) {
             // ignore
@@ -1303,8 +1320,12 @@ export default function ChartContainer({
         const updated = drawingsRef.current.map((d) =>
           d.id === drag.drawingId ? updatedDrawing : d
         );
-        drawingsRef.current = updated;
-        setDrawings(updated);
+                drawingsRef.current = updated;
+        isDrawingInteractionRef.current = true;
+        const ch = chartInstanceRef.current;
+        if (ch) {
+          patchDrawingsOnChart(ch, drawingsRef.current, null, selectedDrawingIdRef.current);
+        }
         e.preventDefault();
         return;
       }
@@ -1317,7 +1338,7 @@ export default function ChartContainer({
         let currentPrice = 0;
         let currentBarIdx = 0;
         try {
-          currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+          currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
           currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
         } catch (err) {
           return;
@@ -1343,8 +1364,17 @@ export default function ChartContainer({
             endDate,
           };
         }
-        activeDrawingRef.current = updated;
-        setActiveDrawing(updated);
+                activeDrawingRef.current = updated;
+        isDrawingInteractionRef.current = true;
+        const chDraw = chartInstanceRef.current;
+        if (chDraw) {
+          patchDrawingsOnChart(
+            chDraw,
+            drawingsRef.current,
+            activeDrawingRef.current,
+            selectedDrawingIdRef.current,
+          );
+        }
         e.preventDefault();
         return;
       }
@@ -1369,7 +1399,7 @@ export default function ChartContainer({
         let currentPrice = 0;
         let currentBarIdx = 0;
         try {
-          currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+          currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
           currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
         } catch (err) {
           currentPrice = measureStartPrice;
@@ -1450,12 +1480,16 @@ export default function ChartContainer({
 
     const onMouseUp = () => {
       if (dragDrawingRef.current) {
+        isDrawingInteractionRef.current = false;
+        setDrawings([...drawingsRef.current]);
         saveDrawings(drawingsRef.current);
         dragDrawingRef.current = null;
         return;
       }
       if (activeDrawingRef.current) {
         const updated = [...drawingsRef.current, activeDrawingRef.current];
+        isDrawingInteractionRef.current = false;
+        setDrawings(updated);
         saveDrawings(updated);
         activeDrawingRef.current = null;
         setActiveDrawing(null);
@@ -1575,7 +1609,7 @@ export default function ChartContainer({
           let startPrice = 0;
           let startBarIdx = 0;
           try {
-            startPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+            startPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
             startBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
           } catch (err) {
             return;
@@ -1667,7 +1701,7 @@ export default function ChartContainer({
           let newStartPrice = drag.startDrawing.startPrice;
           let newStartBarIdx = drag.startDrawing.startBarIdx;
           try {
-            newStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newStartPixel[1]);
+            newStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newStartPixel[1]);
             newStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newStartPixel[0]));
           } catch (err) {
             // ignore
@@ -1677,7 +1711,7 @@ export default function ChartContainer({
           let newEndBarIdx = drag.startDrawing.endBarIdx;
           if (drag.startDrawing.endPrice !== undefined) {
             try {
-              newEndPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newEndPixel[1]);
+              newEndPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newEndPixel[1]);
               newEndBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newEndPixel[0]));
             } catch (err) {
               // ignore
@@ -1701,7 +1735,11 @@ export default function ChartContainer({
             d.id === drag.drawingId ? updatedDrawing : d
           );
           drawingsRef.current = updated;
-          setDrawings(updated);
+          isDrawingInteractionRef.current = true;
+          const chTouch = chartInstanceRef.current;
+          if (chTouch) {
+            patchDrawingsOnChart(chTouch, drawingsRef.current, null, selectedDrawingIdRef.current);
+          }
           if (e.cancelable) e.preventDefault();
           return;
         }
@@ -1714,7 +1752,7 @@ export default function ChartContainer({
           let currentPrice = 0;
           let currentBarIdx = 0;
           try {
-            currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+            currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
             currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
           } catch (err) {
             return;
@@ -1741,7 +1779,16 @@ export default function ChartContainer({
             };
           }
           activeDrawingRef.current = updated;
-          setActiveDrawing(updated);
+          isDrawingInteractionRef.current = true;
+          const chTouchDraw = chartInstanceRef.current;
+          if (chTouchDraw) {
+            patchDrawingsOnChart(
+              chTouchDraw,
+              drawingsRef.current,
+              activeDrawingRef.current,
+              selectedDrawingIdRef.current,
+            );
+          }
           if (e.cancelable) e.preventDefault();
           return;
         }
@@ -1754,12 +1801,16 @@ export default function ChartContainer({
 
     const onTouchEnd = () => {
       if (dragDrawingRef.current) {
+        isDrawingInteractionRef.current = false;
+        setDrawings([...drawingsRef.current]);
         saveDrawings(drawingsRef.current);
         dragDrawingRef.current = null;
         return;
       }
       if (activeDrawingRef.current) {
         const updated = [...drawingsRef.current, activeDrawingRef.current];
+        isDrawingInteractionRef.current = false;
+        setDrawings(updated);
         saveDrawings(updated);
         activeDrawingRef.current = null;
         setActiveDrawing(null);
@@ -1832,44 +1883,57 @@ export default function ChartContainer({
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Crosshair tracking for legend
+    const flushLegendUpdate = () => {
+      if (pendingLegendRef.current === undefined) return;
+      onLegendUpdateRef.current(pendingLegendRef.current);
+      pendingLegendRef.current = undefined;
+    };
+
     chart.on('updateAxisPointer', (params: unknown) => {
-      // Skip all updates during pan/drag to avoid React re-renders
-      if (isDraggingRef.current) return;
+      if (isDraggingRef.current || isDrawingInteractionRef.current) return;
 
       const p = params as { axesInfo?: Array<{ axisDim?: string; value?: number }> };
       const xInfo = p.axesInfo?.find((a) => a.axisDim === 'x');
-      if (xInfo?.value != null && currentDataRef.current.length > 0) {
-        const dataIndex = Math.round(xInfo.value);
-        const realIdx = dataIndex - getPaddingCount(currentDataRef.current.length, isIntraday(intervalRef.current));
-        
-        if (realIdx === lastHoveredIdxRef.current) {
-          return;
+      if (xInfo?.value == null || currentDataRef.current.length === 0) return;
+
+      const dataIndex = Math.round(xInfo.value);
+      const realIdx = dataIndex - getPaddingCount(currentDataRef.current.length, isIntraday(intervalRef.current));
+      if (realIdx === lastHoveredIdxRef.current) return;
+      lastHoveredIdxRef.current = realIdx;
+
+      const bar = currentDataRef.current[realIdx];
+      if (bar) {
+        const prevClose = realIdx > 0 ? currentDataRef.current[realIdx - 1].close : bar.open;
+        pendingLegendRef.current = {
+          symbol: symbolRef.current,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+          time: bar.date,
+          prevClose,
+        };
+        const throttleMs = perfProfileRef.current.legendThrottleMs;
+        if (throttleMs <= 0) {
+          flushLegendUpdate();
+        } else if (legendThrottleRef.current === null) {
+          legendThrottleRef.current = setTimeout(() => {
+            legendThrottleRef.current = null;
+            flushLegendUpdate();
+          }, throttleMs);
         }
-        lastHoveredIdxRef.current = realIdx;
-
-        const bar = currentDataRef.current[realIdx];
-        if (bar) {
-          const prevClose = realIdx > 0 ? currentDataRef.current[realIdx - 1].close : bar.open;
-          onLegendUpdateRef.current({
-            symbol: symbolRef.current,
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
-            volume: bar.volume,
-            time: bar.date,
-            prevClose,
-          });
-
-          // Update sub-panel titles dynamically on hover using HTML DOM
+        if (!perfProfileRef.current.skipPanelTitlesOnHover) {
           updatePanelTitlesRef.current(realIdx);
-        } else {
+        }
+      } else {
+        pendingLegendRef.current = null;
+        if (perfProfileRef.current.legendThrottleMs <= 0) {
           onLegendUpdateRef.current(null);
-          // Fallback titles to last bar when hovered index is invalid
-          const lastIdx = currentDataRef.current.length - 1;
-          if (lastIdx >= 0) {
-            updatePanelTitlesRef.current(lastIdx);
-          }
+        }
+        const lastIdx = currentDataRef.current.length - 1;
+        if (!perfProfileRef.current.skipPanelTitlesOnHover && lastIdx >= 0) {
+          updatePanelTitlesRef.current(lastIdx);
         }
       }
     });
@@ -1920,17 +1984,17 @@ export default function ChartContainer({
 
       // Toggle candlestick large-mode based on how many candles are on screen,
       // so zoomed-out views stay fast while zoomed-in views keep readable bodies.
-      const desiredLarge = Math.abs(endValue - startValue) > LARGE_MODE_VISIBLE_THRESHOLD;
+      const desiredLarge = Math.abs(endValue - startValue) > perfProfileRef.current.largeModeThreshold;
       const patch: Record<string, unknown> = {};
       if (extent) {
-        patch.yAxis = [{ id: 'y-axis-price', min: extent.min, max: extent.max }];
+        patch.yAxis = buildSyncedPriceYAxes(extent.min, extent.max);
       }
       if (desiredLarge !== currentLargeModeRef.current) {
         currentLargeModeRef.current = desiredLarge;
         patch.series = [{ large: desiredLarge }];
       }
       if (Object.keys(patch).length > 0) {
-        chart.setOption(patch);
+        chart.setOption(patch, { lazyUpdate: true });
       }
     };
 
@@ -1966,7 +2030,7 @@ export default function ChartContainer({
       // autoscale here to avoid a second full re-render per frame.
       // Otherwise (wheel / slider) coalesce rapid events into one autoscale per
       // animation frame.
-      if (!isDraggingRef.current && autoscaleRafId === null) {
+      if (!isDraggingRef.current && !isDrawingInteractionRef.current && autoscaleRafId === null) {
         autoscaleRafId = requestAnimationFrame(() => {
           autoscaleRafId = null;
           if (!chart.isDisposed()) runAutoscale();
@@ -1983,6 +2047,10 @@ export default function ChartContainer({
       if (autoscaleRafId !== null) {
         cancelAnimationFrame(autoscaleRafId);
         autoscaleRafId = null;
+      }
+      if (legendThrottleRef.current !== null) {
+        clearTimeout(legendThrottleRef.current);
+        legendThrottleRef.current = null;
       }
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('temist-export-chart-png', handleExportPng);
@@ -2178,13 +2246,18 @@ export default function ChartContainer({
       null,
       computed,
       panelHeights,
-      activeDrawing ? [...drawings, activeDrawing] : drawings,
-      selectedDrawingId,
+      activeDrawingRef.current
+        ? [...drawingsRef.current, activeDrawingRef.current]
+        : drawingsRef.current,
+      selectedDrawingIdRef.current,
       zoomStartVal,
       zoomEndVal
     );
 
-    chart.setOption(newOption, true);
+    chart.setOption(newOption, {
+      notMerge: true,
+      lazyUpdate: perfProfileRef.current.lowEnd,
+    });
     // Keep the live large-mode tracker in sync with what buildOption just chose,
     // so the dataZoom handler only toggles it when the visible span crosses the
     // threshold.
@@ -2192,7 +2265,7 @@ export default function ChartContainer({
       zoomStartVal !== null && zoomEndVal !== null
         ? Math.abs(zoomEndVal - zoomStartVal)
         : DEFAULT_VISIBLE_CANDLE_COUNT + RIGHT_PAD_BARS;
-    currentLargeModeRef.current = builtSpan > LARGE_MODE_VISIBLE_THRESHOLD;
+    currentLargeModeRef.current = builtSpan > perfProfileRef.current.largeModeThreshold;
     if (filtered.length > 0) {
       lastBarRef.current = { ...filtered[filtered.length - 1] };
     }
@@ -2245,8 +2318,6 @@ export default function ChartContainer({
     panelBottoms,
     panelHeights,
     theme,
-    drawings,
-    activeDrawing,
     selectedDrawingId,
   ]);
 
