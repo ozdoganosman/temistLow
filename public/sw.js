@@ -4,9 +4,9 @@ const DATA_CACHE = 'Temist-data-v3';
 
 // Static assets — cache-first
 const STATIC_ASSETS = [
-  '/Temist/',
-  '/Temist/index.html',
-  '/Temist/favicon.svg',
+  '/temistLow/',
+  '/temistLow/index.html',
+  '/temistLow/favicon.svg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -37,8 +37,8 @@ self.addEventListener('fetch', (event) => {
   if (
     event.request.mode === 'navigate' ||
     url.pathname.endsWith('.html') ||
-    url.pathname === '/Temist/' ||
-    url.pathname === '/Temist/index.html'
+    url.pathname === '/temistLow/' ||
+    url.pathname === '/temistLow/index.html'
   ) {
     event.respondWith(
       fetch(event.request)
