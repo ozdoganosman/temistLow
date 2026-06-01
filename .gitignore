@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+backend/__pycache__/
+backend/cache/
+*.pyc
+.env
+nul
+temp_*.json

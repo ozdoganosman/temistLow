@@ -1,0 +1,213 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "dataLoading": "Loading data...",
+    "error": "Error",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "search": "Search",
+    "noData": "No data found",
+    "retry": "Retry",
+    "add": "Add",
+    "clear": "Clear"
+  },
+  "toolbar": {
+    "symbolSearch": "Search symbol...",
+    "noResults": "No results found",
+    "typeToSearch": "Type symbol or name...",
+    "indicators": "Indicators",
+    "financials": "Financials",
+    "signals": "Signals",
+    "chart": "Chart",
+    "analysis": "Market Analysis",
+    "multichart": "Multi-Chart",
+    "backtest": "Backtest",
+    "financial": "Financial Analysis",
+    "crypto": "Crypto",
+    "watchlist": "Watchlist",
+    "alarms": "Alarms",
+    "logScale": "Log scale",
+    "addToWatchlist": "Add to watchlist",
+    "removeFromWatchlist": "Remove from watchlist",
+    "view": "View",
+    "page": "Page"
+  },
+  "intervals": {
+    "1m": "1m",
+    "5m": "5m",
+    "15m": "15m",
+    "30m": "30m",
+    "1h": "1H",
+    "4h": "4H",
+    "1d": "1D",
+    "1wk": "1W",
+    "1mo": "1M"
+  },
+  "stockSummary": {
+    "lastPrice": "Last Price",
+    "change": "Change",
+    "volume": "Volume",
+    "avgVolume20": "Avg. Volume (20D)",
+    "high52w": "52W High",
+    "low52w": "52W Low"
+  },
+  "legend": {
+    "open": "O",
+    "high": "H",
+    "low": "L",
+    "close": "C",
+    "volume": "Vol"
+  },
+  "financials": {
+    "incomeStatement": "Income Statement",
+    "balanceSheet": "Balance Sheet",
+    "cashFlow": "Cash Flow",
+    "billion": "B",
+    "million": "M",
+    "thousand": "K"
+  },
+  "signals": {
+    "panel": "Signal Panel",
+    "config": "Configuration",
+    "trades": "Trades",
+    "optimizer": "Optimizer",
+    "mlPanel": "ML Prediction",
+    "savedConfigs": "Saved",
+    "modeAnd": "AND",
+    "modeOr": "OR",
+    "posLong": "LONG",
+    "posShort": "SHORT",
+    "posBoth": "BOTH",
+    "noTrades": "No trades found. Enable at least one indicator and condition.",
+    "direction": "Direction",
+    "entry": "Entry",
+    "price": "Price",
+    "exit": "Exit",
+    "plPercent": "P/L %",
+    "bars": "Bars",
+    "tradeCount": "Trades",
+    "winRate": "Win Rate",
+    "totalReturn": "Total",
+    "profitFactor": "Profit Factor",
+    "sharpe": "Sharpe",
+    "sortino": "Sortino",
+    "calmar": "Calmar",
+    "maxDrawdown": "Max DD",
+    "threshold": "Threshold",
+    "midLine": "Mid Line",
+    "histogram": "Histogram",
+    "crossover": "Crossover",
+    "squeeze": "Squeeze",
+    "cloud": "Cloud",
+    "divergence": "Divergence",
+    "buy": "BUY",
+    "sell": "SELL",
+    "long": "UP",
+    "short": "DOWN",
+    "both": "BOTH"
+  },
+  "optimizer": {
+    "phaseSingleScan": "Single Scan",
+    "phaseGenetic": "Genetic Search",
+    "phaseCombinations": "Combinations",
+    "phaseWalkForward": "Walk-Forward",
+    "phaseMonteCarlo": "Monte Carlo",
+    "sourceGrid": "Grid",
+    "sourceGA": "GA",
+    "sourceCombo": "Combo"
+  },
+  "ml": {
+    "presetFast": "Fast",
+    "presetBalanced": "Balanced",
+    "presetPatient": "Patient",
+    "loading": "Loading ML panel...",
+    "savedLoading": "Loading saved panel..."
+  },
+  "analysis": {
+    "title": "Market Analysis",
+    "scanning": "Scanning...",
+    "lastScan": "Last scan",
+    "rescan": "Rescan",
+    "cacheCleared": "Cache cleared",
+    "cacheClearFailed": "Failed to clear cache",
+    "stock": "Stock",
+    "closePrice": "Close",
+    "dataUpdated": "Data updated"
+  },
+  "watchlist": {
+    "title": "WATCHLIST",
+    "empty": "No stocks being watched yet.",
+    "emptyHint": "Click the star icon in the toolbar to add stocks.",
+    "remove": "Remove"
+  },
+  "alarms": {
+    "title": "ALARMS",
+    "symbol": "Symbol",
+    "targetPrice": "Target price",
+    "priceAbove": "Goes above",
+    "priceBelow": "Goes below",
+    "triggered": "TRIGGERED",
+    "active": "Active",
+    "reactivate": "Reactivate",
+    "disable": "Disable",
+    "enable": "Enable",
+    "empty": "No alarms added yet.",
+    "emptyHint": "Use the form above to add a price alarm.",
+    "wentAbove": "went above",
+    "wentBelow": "went below"
+  },
+  "disclaimer": {
+    "text": "This application is for informational purposes only. Not investment advice."
+  },
+  "errors": {
+    "symbolListFailed": "Failed to load symbol list, using defaults",
+    "dataFetchFailed": "Failed to load data",
+    "connectionError": "Connection error",
+    "unknownError": "Unknown error",
+    "errorOccurred": "An error occurred"
+  },
+  "export": {
+    "export": "Export",
+    "csvOhlcv": "CSV (OHLCV)",
+    "csvAll": "CSV (OHLCV + Indicators)",
+    "excelOhlcv": "Excel (OHLCV)",
+    "excelAll": "Excel (OHLCV + Indicators)",
+    "csvOhlcvDesc": "Price and volume data only",
+    "csvAllDesc": "Price + RSI, MACD, Bollinger, ADX, SuperTrend",
+    "excelOhlcvDesc": "XLSX format price data",
+    "excelAllDesc": "XLSX format all data",
+    "png": "Chart Image (PNG)",
+    "pngDesc": "Download current chart image"
+  },
+  "backtest": {
+    "title": "Backtest",
+    "cacheClearFailed": "Failed to clear cache"
+  },
+  "errorBoundary": {
+    "title": "An error occurred",
+    "hint": "Unknown error",
+    "retry": "Retry"
+  },
+  "months": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Apr",
+    "may": "May",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Dec"
+  },
+  "savedConfigs": {
+    "empty": "No saved configurations.",
+    "emptyHint": "Create a configuration in the Trades tab and press \"Save\".",
+    "symbolListError": "Failed to get symbol list.",
+    "scanError": "Scan error."
+  }
+}

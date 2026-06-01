@@ -1,0 +1,213 @@
+{
+  "common": {
+    "loading": "Yükleniyor...",
+    "dataLoading": "Veri yükleniyor...",
+    "error": "Hata",
+    "close": "Kapat",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "cancel": "İptal",
+    "search": "Ara",
+    "noData": "Veri bulunamadı",
+    "retry": "Tekrar Dene",
+    "add": "Ekle",
+    "clear": "Temizle"
+  },
+  "toolbar": {
+    "symbolSearch": "Hisse ara...",
+    "noResults": "Sonuç bulunamadı",
+    "typeToSearch": "Hisse kodu veya isim yazın...",
+    "indicators": "İndikatörler",
+    "financials": "Finansallar",
+    "signals": "Al/Sat",
+    "chart": "Grafik",
+    "analysis": "Piyasa Analizi",
+    "multichart": "Çoklu Grafik",
+    "backtest": "Backtest",
+    "financial": "Finansal Analiz",
+    "crypto": "Kripto",
+    "watchlist": "Takip Listesi",
+    "alarms": "Alarmlar",
+    "logScale": "Logaritmik ölçek",
+    "addToWatchlist": "Takip listesine ekle",
+    "removeFromWatchlist": "Takipten çıkar",
+    "view": "Görünüm",
+    "page": "Sayfa"
+  },
+  "intervals": {
+    "1m": "1dk",
+    "5m": "5dk",
+    "15m": "15dk",
+    "30m": "30dk",
+    "1h": "1S",
+    "4h": "4S",
+    "1d": "1G",
+    "1wk": "1H",
+    "1mo": "1A"
+  },
+  "stockSummary": {
+    "lastPrice": "Son Fiyat",
+    "change": "Değişim",
+    "volume": "Hacim",
+    "avgVolume20": "Ort. Hacim (20G)",
+    "high52w": "52H Yüksek",
+    "low52w": "52H Düşük"
+  },
+  "legend": {
+    "open": "A",
+    "high": "Y",
+    "low": "D",
+    "close": "K",
+    "volume": "Hac"
+  },
+  "financials": {
+    "incomeStatement": "Gelir Tablosu",
+    "balanceSheet": "Bilanço",
+    "cashFlow": "Nakit Akış",
+    "billion": "Mlr",
+    "million": "Mln",
+    "thousand": "B"
+  },
+  "signals": {
+    "panel": "Sinyal Paneli",
+    "config": "Konfigürasyon",
+    "trades": "İşlemler",
+    "optimizer": "Optimizatör",
+    "mlPanel": "ML Tahmin",
+    "savedConfigs": "Kayıtlı",
+    "modeAnd": "VE",
+    "modeOr": "VEYA",
+    "posLong": "UZUN",
+    "posShort": "KISA",
+    "posBoth": "İKİ YÖN",
+    "noTrades": "İşlem bulunamadı. En az bir indikatör ve bir koşul seçin.",
+    "direction": "Yön",
+    "entry": "Giriş",
+    "price": "Fiyat",
+    "exit": "Çıkış",
+    "plPercent": "K/Z %",
+    "bars": "Bar",
+    "tradeCount": "İşlem",
+    "winRate": "Kazanma",
+    "totalReturn": "Toplam",
+    "profitFactor": "Kâr Fakt.",
+    "sharpe": "Sharpe",
+    "sortino": "Sortino",
+    "calmar": "Calmar",
+    "maxDrawdown": "Maks DD",
+    "threshold": "Eşik",
+    "midLine": "Orta Çizgi",
+    "histogram": "Histogram",
+    "crossover": "Kesişim",
+    "squeeze": "Sıkışma",
+    "cloud": "Bulut",
+    "divergence": "Sapma",
+    "buy": "AL",
+    "sell": "SAT",
+    "long": "YUKARI",
+    "short": "AŞAĞI",
+    "both": "2 YÖN"
+  },
+  "optimizer": {
+    "phaseSingleScan": "Tekli Tarama",
+    "phaseGenetic": "Genetik Arama",
+    "phaseCombinations": "Kombinasyonlar",
+    "phaseWalkForward": "Walk-Forward",
+    "phaseMonteCarlo": "Monte Carlo",
+    "sourceGrid": "Grid",
+    "sourceGA": "GA",
+    "sourceCombo": "Kombo"
+  },
+  "ml": {
+    "presetFast": "Hızlı",
+    "presetBalanced": "Dengeli",
+    "presetPatient": "Sabırlı",
+    "loading": "ML paneli yükleniyor...",
+    "savedLoading": "Kayıtlı panel yükleniyor..."
+  },
+  "analysis": {
+    "title": "Piyasa Analizi",
+    "scanning": "Taranıyor...",
+    "lastScan": "Son tarama",
+    "rescan": "Yeniden Tara",
+    "cacheCleared": "Cache temizlendi",
+    "cacheClearFailed": "Cache temizlenemedi",
+    "stock": "Hisse",
+    "closePrice": "Kapanış",
+    "dataUpdated": "Veri güncellendi"
+  },
+  "watchlist": {
+    "title": "TAKİP LİSTESİ",
+    "empty": "Henüz takip edilen hisse yok.",
+    "emptyHint": "Toolbar'daki yıldız ikonuna tıklayarak hisse ekleyin.",
+    "remove": "Kaldır"
+  },
+  "alarms": {
+    "title": "ALARMLAR",
+    "symbol": "Sembol",
+    "targetPrice": "Hedef fiyat",
+    "priceAbove": "Üstüne çıkarsa",
+    "priceBelow": "Altına düşerse",
+    "triggered": "TETİKLENDİ",
+    "active": "Aktif",
+    "reactivate": "Tekrar etkinleştir",
+    "disable": "Devre dışı bırak",
+    "enable": "Etkinleştir",
+    "empty": "Henüz alarm eklenmedi.",
+    "emptyHint": "Yukarıdaki formdan fiyat alarmı ekleyin.",
+    "wentAbove": "üstüne çıktı",
+    "wentBelow": "altına düştü"
+  },
+  "disclaimer": {
+    "text": "Bu uygulama yalnızca bilgilendirme amaçlıdır. Yatırım tavsiyesi değildir."
+  },
+  "errors": {
+    "symbolListFailed": "Sembol listesi yüklenemedi, varsayılan liste kullanılıyor",
+    "dataFetchFailed": "Veri yüklenemedi",
+    "connectionError": "Bağlantı hatası",
+    "unknownError": "Bilinmeyen hata",
+    "errorOccurred": "Bir hata oluştu"
+  },
+  "export": {
+    "export": "Aktar",
+    "csvOhlcv": "CSV (OHLCV)",
+    "csvAll": "CSV (OHLCV + İndikatörler)",
+    "excelOhlcv": "Excel (OHLCV)",
+    "excelAll": "Excel (OHLCV + İndikatörler)",
+    "csvOhlcvDesc": "Sadece fiyat ve hacim verileri",
+    "csvAllDesc": "Fiyat + RSI, MACD, Bollinger, ADX, SuperTrend",
+    "excelOhlcvDesc": "XLSX formatında fiyat verileri",
+    "excelAllDesc": "XLSX formatında tüm veriler",
+    "png": "Grafik Resmi (PNG)",
+    "pngDesc": "Mevcut grafik görüntüsünü indir"
+  },
+  "backtest": {
+    "title": "Backtest",
+    "cacheClearFailed": "Cache temizlenemedi"
+  },
+  "errorBoundary": {
+    "title": "Bir hata oluştu",
+    "hint": "Bilinmeyen hata",
+    "retry": "Tekrar Dene"
+  },
+  "months": {
+    "jan": "Oca",
+    "feb": "Şub",
+    "mar": "Mar",
+    "apr": "Nis",
+    "may": "May",
+    "jun": "Haz",
+    "jul": "Tem",
+    "aug": "Ağu",
+    "sep": "Eyl",
+    "oct": "Eki",
+    "nov": "Kas",
+    "dec": "Ara"
+  },
+  "savedConfigs": {
+    "empty": "Kayıtlı yapılandırma yok.",
+    "emptyHint": "İşlemler sekmesinde ayar oluşturup \"Kaydet\" butonuna basın.",
+    "symbolListError": "Sembol listesi alınamadı.",
+    "scanError": "Tarama hatası."
+  }
+}

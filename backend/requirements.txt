@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+websockets
+borsapy
+pandas
+numpy
+lightgbm
+xgboost
+scikit-learn
+optuna
+isyatirimhisse
+python-dotenv
+pytest
+httpx
