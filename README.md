@@ -2,7 +2,7 @@
 
 Borsa İstanbul (BIST) hisse senetleri için özelleştirilmiş teknik indikatörler, korelasyon analizleri ve kapsamlı finansal tablolar sunan profesyonel bir analiz platformu.
 
-**Canlı Yayın:** [ozdoganosman.github.io/Temist](https://ozdoganosman.github.io/Temist/)
+**Canlı Yayın:** [ozdoganosman.github.io/temistLow](https://ozdoganosman.github.io/temistLow/)
 
 ---
 
@@ -27,6 +27,19 @@ Borsa İstanbul (BIST) hisse senetleri için özelleştirilmiş teknik indikatö
 ### 💼 Temel ve Finansal Analiz
 - Şirketlerin F/K, PD/DD, FD/FAVÖK ve Özsermaye Karlılığı (ROE) oranları.
 - Gelir Tablosu, Bilanço ve Nakit Akış tablolarının interaktif grafiklerle görselleştirilmesi (Grafik altında ve ayrı Finansal Analiz sayfasında).
+
+## GitHub Pages deploy
+
+Site otomatik olarak `main` branch'ine her push'ta [Deploy to GitHub Pages](.github/workflows/deploy.yml) workflow'u ile yayınlanır.
+
+**İlk kurulum (bir kez):**
+
+1. [Repository → Settings → Pages](https://github.com/ozdoganosman/temistLow/settings/pages)
+2. **Build and deployment → Source:** `GitHub Actions`
+3. Son başarısız deploy varsa: **Actions → Deploy to GitHub Pages → Re-run all jobs**
+
+**URL:** https://ozdoganosman.github.io/temistLow/
+
 
 ---
 
