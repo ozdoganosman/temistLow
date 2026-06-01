@@ -48,7 +48,8 @@ import { formatVolume } from '../../utils/formatters';
 import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
-import { getChartPerfProfile } from './chartPerf';
+import { getChartPerfProfile, countChartIndicatorLoad, getEffectiveLargeModeThreshold } from './chartPerf';
+import { readDataZoomWindow, buildDataZoomValuePatch } from './chartZoom';
 import { useDeferredChartFlags } from './useDeferredChartFlags';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
@@ -574,6 +575,9 @@ function ChartContainer({
   const perfProfileRef = useRef(getChartPerfProfile());
   const legendThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLegendRef = useRef<LegendData | null | undefined>(undefined);
+  const suppressChartSideEffectsRef = useRef(false);
+  const indicatorLoadRef = useRef(0);
+  const panFrameSkipRef = useRef(0);
 
   // Load drawings from localStorage
   useEffect(() => {
@@ -800,6 +804,10 @@ function ChartContainer({
     let activeYAxisGridIndex = 0;
     // RAF throttle for drag moves
     let dragRafId: number | null = null;
+    let startZoomStartValue = 0;
+    let startZoomEndValue = 0;
+    let zoomWindowSpan = 0;
+    let zoomWin = { startValue: 0, endValue: 0, xLen: 0 };
     // Shared drag flag — component-level isDraggingRef
 
     // Shift + Drag measurement variables
@@ -1076,6 +1084,13 @@ function ChartContainer({
 
       startZoomStart = opt.dataZoom?.[0]?.start ?? 0;
       startZoomEnd = opt.dataZoom?.[0]?.end ?? 100;
+      zoomWin = readDataZoomWindow(opt);
+      startZoomStartValue = zoomWin.startValue;
+      startZoomEndValue = zoomWin.endValue;
+      zoomWindowSpan = startZoomEndValue - startZoomStartValue;
+      suppressChartSideEffectsRef.current = true;
+      panFrameSkipRef.current = 0;
+      chart.setOption({ axisPointer: { show: false } }, { lazyUpdate: true });
 
       activeYAxisIdx = 0;
       activeYAxisId = 'y-axis-price';
@@ -1151,16 +1166,32 @@ function ChartContainer({
       if (dragRafId !== null) return;
       dragRafId = requestAnimationFrame(() => {
         dragRafId = null;
-        // Batch the horizontal pan (dataZoom) and the vertical pan (yAxis) into
-        // a SINGLE setOption so the chart re-renders once per frame instead of
-        // 3x (dispatchAction + its dataZoom-event autoscale + a manual setOption).
+        const load = indicatorLoadRef.current;
+        if (load >= 6) {
+          panFrameSkipRef.current = (panFrameSkipRef.current + 1) % 2;
+          if (panFrameSkipRef.current === 1) return;
+        }
+        const optNow = chart.getOption() as any;
+        const xLen = optNow?.xAxis?.[0]?.data?.length ?? zoomWin.xLen;
+        const shiftBars = Math.round(-(dx / pxRange) * zoomWindowSpan);
+        let newStartValue = startZoomStartValue + shiftBars;
+        let newEndValue = startZoomEndValue + shiftBars;
+        const maxIdx = Math.max(0, xLen - 1);
+        if (newStartValue < 0) {
+          newEndValue -= newStartValue;
+          newStartValue = 0;
+        }
+        if (newEndValue > maxIdx) {
+          newStartValue -= newEndValue - maxIdx;
+          newEndValue = maxIdx;
+        }
+        newStartValue = Math.max(0, newStartValue);
+
         const patch: Record<string, unknown> = {
-          dataZoom: [
-            { start: newStart, end: newEnd },
-            { start: newStart, end: newEnd },
-          ],
+          dataZoom: buildDataZoomValuePatch(newStartValue, newEndValue),
         };
-        if (capturedAxisId && capturedAxisId !== '') {
+        const allowYpan = Math.abs(dy) >= 8 && load < 8;
+        if (allowYpan && capturedAxisId && capturedAxisId !== '') {
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
@@ -1171,7 +1202,7 @@ function ChartContainer({
               ? buildSyncedPriceYAxes(yMin, yMax)
               : [{ id: capturedAxisId, min: yMin, max: yMax }];
         }
-        chart.setOption(patch, { lazyUpdate: true });
+        chart.setOption(patch, { lazyUpdate: true, replaceMerge: ['dataZoom', 'yAxis'] });
       });
     };
 
@@ -1180,6 +1211,15 @@ function ChartContainer({
       dragging = false;
       dragOnPriceAxis = false;
       isDraggingRef.current = false;
+      if (wasDragging) {
+        suppressChartSideEffectsRef.current = false;
+        chart.setOption({ axisPointer: { show: true } }, { lazyUpdate: true });
+        if (!chart.isDisposed()) {
+          requestAnimationFrame(() => {
+            if (!chart.isDisposed()) runAutoscale();
+          });
+        }
+      }
       if (dragRafId !== null) {
         cancelAnimationFrame(dragRafId);
         dragRafId = null;
@@ -2012,7 +2052,7 @@ function ChartContainer({
 
       // Toggle candlestick large-mode based on how many candles are on screen,
       // so zoomed-out views stay fast while zoomed-in views keep readable bodies.
-      const desiredLarge = Math.abs(endValue - startValue) > perfProfileRef.current.largeModeThreshold;
+      const desiredLarge = Math.abs(endValue - startValue) > getEffectiveLargeModeThreshold(indicatorLoadRef.current, perfProfileRef.current.largeModeThreshold);
       const patch: Record<string, unknown> = {};
       if (extent) {
         patch.yAxis = buildSyncedPriceYAxes(extent.min, extent.max);
@@ -2027,6 +2067,7 @@ function ChartContainer({
     };
 
     const scheduleZoomSave = () => {
+      if (suppressChartSideEffectsRef.current) return;
       if (zoomSaveTimeout) {
         clearTimeout(zoomSaveTimeout);
       }
@@ -2053,6 +2094,7 @@ function ChartContainer({
     zoomSaveRef.current = scheduleZoomSave;
 
     chart.on('dataZoom', () => {
+      if (suppressChartSideEffectsRef.current) return;
       // While the user is actively dragging, the pan RAF already sets both the
       // dataZoom window and the y-axis in one batched setOption — skip the
       // autoscale here to avoid a second full re-render per frame.
@@ -2191,6 +2233,7 @@ function ChartContainer({
     prevSymbolRef.current = symbol;
 
     currentDataRef.current = [...filtered];
+    indicatorLoadRef.current = countChartIndicatorLoad(chartFlags);
     const themeColors = getThemeColors();
     themeColorsRef.current = themeColors;
 

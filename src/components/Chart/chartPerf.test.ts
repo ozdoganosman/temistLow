@@ -12,3 +12,11 @@ describe('chartPerf', () => {
     expect(['lttb', 'average']).toContain(profile.lineSampling);
   });
 });
+
+import { countChartIndicatorLoad, getEffectiveLargeModeThreshold } from './chartPerf';
+
+it('weights indicator load for large-mode threshold', () => {
+  const load = countChartIndicatorLoad({ showEMAOverlay: true, showRSI: true, showMACD: true });
+  expect(load).toBeGreaterThan(5);
+  expect(getEffectiveLargeModeThreshold(load, 150)).toBeLessThan(150);
+});
