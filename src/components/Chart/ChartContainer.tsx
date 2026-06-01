@@ -17,7 +17,9 @@ import {
   MAX_PERSISTED_VISIBLE_CANDLE_COUNT,
   LARGE_MODE_VISIBLE_THRESHOLD,
   RIGHT_PAD_BARS,
+  PRICE_Y_AXIS_ID,
   buildOption,
+  buildSyncedPriceYAxes,
   computeVisiblePriceExtent,
   getThemeColors,
   getPaddingCount,
@@ -721,7 +723,7 @@ export default function ChartContainer({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' });
+    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas', useDirtyRect: true });
     chartInstanceRef.current = chart;
 
     const handleResize = () => chart.resize();
@@ -1084,7 +1086,14 @@ export default function ChartContainer({
           const mid = (capturedYMin + capturedYMax) / 2;
           const scaleFactor = 1 + (dy / gridHeight) * 2;
           const newHalf = (yRange / 2) * Math.max(0.1, scaleFactor);
-          chart.setOption({ yAxis: [{ id: capturedAxisId, min: mid - newHalf, max: mid + newHalf }] });
+          const yMin = mid - newHalf;
+          const yMax = mid + newHalf;
+          chart.setOption({
+            yAxis:
+              capturedAxisId === PRICE_Y_AXIS_ID
+                ? buildSyncedPriceYAxes(yMin, yMax)
+                : [{ id: capturedAxisId, min: yMin, max: yMax }],
+          });
         });
         return;
       }
@@ -1124,9 +1133,14 @@ export default function ChartContainer({
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
-          patch.yAxis = [{ id: capturedAxisId, min: capturedYMin + yShift, max: capturedYMax + yShift }];
+          const yMin = capturedYMin + yShift;
+          const yMax = capturedYMax + yShift;
+          patch.yAxis =
+            capturedAxisId === PRICE_Y_AXIS_ID
+              ? buildSyncedPriceYAxes(yMin, yMax)
+              : [{ id: capturedAxisId, min: yMin, max: yMax }];
         }
-        chart.setOption(patch);
+        chart.setOption(patch, { lazyUpdate: true });
       });
     };
 
@@ -1156,7 +1170,7 @@ export default function ChartContainer({
         let startPrice = 0;
         let startBarIdx = 0;
         try {
-          startPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+          startPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
           startBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
         } catch (err) {
           console.error(err);
@@ -1220,7 +1234,7 @@ export default function ChartContainer({
 
         // Convert pixels to chart coordinates
         try {
-          measureStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+          measureStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
           measureStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
         } catch (err) {
           console.error('ECharts convertFromPixel error:', err);
@@ -1270,7 +1284,7 @@ export default function ChartContainer({
         let newStartPrice = drag.startDrawing.startPrice;
         let newStartBarIdx = drag.startDrawing.startBarIdx;
         try {
-          newStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newStartPixel[1]);
+          newStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newStartPixel[1]);
           newStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newStartPixel[0]));
         } catch (err) {
           // ignore
@@ -1280,7 +1294,7 @@ export default function ChartContainer({
         let newEndBarIdx = drag.startDrawing.endBarIdx;
         if (drag.startDrawing.endPrice !== undefined) {
           try {
-            newEndPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newEndPixel[1]);
+            newEndPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newEndPixel[1]);
             newEndBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newEndPixel[0]));
           } catch (err) {
             // ignore
@@ -1317,7 +1331,7 @@ export default function ChartContainer({
         let currentPrice = 0;
         let currentBarIdx = 0;
         try {
-          currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+          currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
           currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
         } catch (err) {
           return;
@@ -1369,7 +1383,7 @@ export default function ChartContainer({
         let currentPrice = 0;
         let currentBarIdx = 0;
         try {
-          currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+          currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
           currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
         } catch (err) {
           currentPrice = measureStartPrice;
@@ -1575,7 +1589,7 @@ export default function ChartContainer({
           let startPrice = 0;
           let startBarIdx = 0;
           try {
-            startPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localY);
+            startPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localY);
             startBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localX));
           } catch (err) {
             return;
@@ -1667,7 +1681,7 @@ export default function ChartContainer({
           let newStartPrice = drag.startDrawing.startPrice;
           let newStartBarIdx = drag.startDrawing.startBarIdx;
           try {
-            newStartPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newStartPixel[1]);
+            newStartPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newStartPixel[1]);
             newStartBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newStartPixel[0]));
           } catch (err) {
             // ignore
@@ -1677,7 +1691,7 @@ export default function ChartContainer({
           let newEndBarIdx = drag.startDrawing.endBarIdx;
           if (drag.startDrawing.endPrice !== undefined) {
             try {
-              newEndPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, newEndPixel[1]);
+              newEndPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, newEndPixel[1]);
               newEndBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, newEndPixel[0]));
             } catch (err) {
               // ignore
@@ -1714,7 +1728,7 @@ export default function ChartContainer({
           let currentPrice = 0;
           let currentBarIdx = 0;
           try {
-            currentPrice = chart.convertFromPixel({ yAxisId: 'y-axis-price' }, localCurrentY);
+            currentPrice = chart.convertFromPixel({ yAxisId: PRICE_Y_AXIS_ID }, localCurrentY);
             currentBarIdx = Math.round(chart.convertFromPixel({ xAxisIndex: 0 }, localCurrentX));
           } catch (err) {
             return;
@@ -1923,14 +1937,14 @@ export default function ChartContainer({
       const desiredLarge = Math.abs(endValue - startValue) > LARGE_MODE_VISIBLE_THRESHOLD;
       const patch: Record<string, unknown> = {};
       if (extent) {
-        patch.yAxis = [{ id: 'y-axis-price', min: extent.min, max: extent.max }];
+        patch.yAxis = buildSyncedPriceYAxes(extent.min, extent.max);
       }
       if (desiredLarge !== currentLargeModeRef.current) {
         currentLargeModeRef.current = desiredLarge;
         patch.series = [{ large: desiredLarge }];
       }
       if (Object.keys(patch).length > 0) {
-        chart.setOption(patch);
+        chart.setOption(patch, { lazyUpdate: true });
       }
     };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OHLCVData } from '../../api/borsaApi';
-import { buildOption, computeVisiblePriceExtent, getPaddingCount } from './chartBuilder';
+import { buildOption, buildSyncedPriceYAxes, computeVisiblePriceExtent, getPaddingCount } from './chartBuilder';
 import type { ThemeColors } from './chartBuilder';
 
 const theme: ThemeColors = {
@@ -38,6 +38,15 @@ describe('chartBuilder price axis scaling', () => {
     expect(extent).toBeDefined();
     expect(extent!.min).toBeGreaterThan(9);
     expect(extent!.max).toBeLessThan(14);
+  });
+
+  it('keeps drawings y-axis in sync with price axis helpers', () => {
+    const axes = buildSyncedPriceYAxes(10, 20);
+    expect(axes).toHaveLength(2);
+    expect(axes[0].id).toBe('y-axis-price');
+    expect(axes[1].id).toBe('y-axis-drawings');
+    expect(axes[0].min).toBe(10);
+    expect(axes[1].max).toBe(20);
   });
 
   it('sets the initial y-axis range to the default visible window', () => {
