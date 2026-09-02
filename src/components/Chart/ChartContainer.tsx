@@ -49,7 +49,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 import DrawingToolbar from './DrawingToolbar';
 import './ChartContainer.css';
 import { getChartPerfProfile, countChartIndicatorLoad, getEffectiveLargeModeThreshold } from './chartPerf';
-import { readDataZoomWindow, buildDataZoomPercentPatch, shiftDataZoomPercent } from './chartZoom';
 import { useDeferredChartFlags } from './useDeferredChartFlags';
 
 // Keep import reference for future use (signal scatter is already called inside buildOption)
@@ -575,7 +574,6 @@ function ChartContainer({
   const perfProfileRef = useRef(getChartPerfProfile());
   const legendThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLegendRef = useRef<LegendData | null | undefined>(undefined);
-  const suppressChartSideEffectsRef = useRef(false);
   const indicatorLoadRef = useRef(0);
 
   // Load drawings from localStorage
@@ -803,7 +801,6 @@ function ChartContainer({
     let activeYAxisGridIndex = 0;
     // RAF throttle for drag moves
     let dragRafId: number | null = null;
-    let zoomWin = { start: 0, end: 100, startValue: 0, endValue: 0, xLen: 0 };
     // Shared drag flag — component-level isDraggingRef
 
     // Shift + Drag measurement variables
@@ -1078,11 +1075,8 @@ function ChartContainer({
         }
       }
 
-      zoomWin = readDataZoomWindow(opt);
-      startZoomStart = zoomWin.start;
-      startZoomEnd = zoomWin.end;
-      suppressChartSideEffectsRef.current = true;
-      chart.setOption({ axisPointer: { show: false } }, { lazyUpdate: true });
+      startZoomStart = opt.dataZoom?.[0]?.start ?? 0;
+      startZoomEnd = opt.dataZoom?.[0]?.end ?? 100;
 
       activeYAxisIdx = 0;
       activeYAxisId = 'y-axis-price';
@@ -1154,30 +1148,29 @@ function ChartContainer({
       if (dragRafId !== null) return;
       dragRafId = requestAnimationFrame(() => {
         dragRafId = null;
-        const { start: newStart, end: newEnd } = shiftDataZoomPercent(zoomWin, dx, pxRange);
-        if (Math.abs(newEnd - newStart) < 0.01) return;
+        const zoomRange = startZoomEnd - startZoomStart;
+        const shift = -(dx / pxRange) * zoomRange;
+        const newStart = startZoomStart + shift;
+        const newEnd = startZoomEnd + shift;
 
-        chart.dispatchAction({ type: 'dataZoom', dataZoomIndex: 0, start: newStart, end: newEnd });
-        chart.dispatchAction({ type: 'dataZoom', dataZoomIndex: 1, start: newStart, end: newEnd });
-
-        const load = indicatorLoadRef.current;
-        const allowYpan = Math.abs(dy) >= 10 && load < 10;
-        if (allowYpan && capturedAxisId && capturedAxisId !== '') {
+        const patch: Record<string, unknown> = {
+          dataZoom: [
+            { start: newStart, end: newEnd },
+            { start: newStart, end: newEnd },
+          ],
+        };
+        if (capturedAxisId && capturedAxisId !== '') {
           const gridHeight = capturedGridIndex === 0 ? rect.height - 70 : 120;
           const yRange = capturedYMax - capturedYMin;
           const yShift = (dy / gridHeight) * yRange;
           const yMin = capturedYMin + yShift;
           const yMax = capturedYMax + yShift;
-          chart.setOption(
-            {
-              yAxis:
-                capturedAxisId === PRICE_Y_AXIS_ID
-                  ? buildSyncedPriceYAxes(yMin, yMax)
-                  : [{ id: capturedAxisId, min: yMin, max: yMax }],
-            },
-            { lazyUpdate: true },
-          );
+          patch.yAxis =
+            capturedAxisId === PRICE_Y_AXIS_ID
+              ? buildSyncedPriceYAxes(yMin, yMax)
+              : [{ id: capturedAxisId, min: yMin, max: yMax }];
         }
+        chart.setOption(patch, { lazyUpdate: true });
       });
     };
 
@@ -1186,15 +1179,6 @@ function ChartContainer({
       dragging = false;
       dragOnPriceAxis = false;
       isDraggingRef.current = false;
-      if (wasDragging) {
-        suppressChartSideEffectsRef.current = false;
-        chart.setOption({ axisPointer: { show: true } }, { lazyUpdate: true });
-        if (!chart.isDisposed()) {
-          requestAnimationFrame(() => {
-            if (!chart.isDisposed()) runAutoscale();
-          });
-        }
-      }
       if (dragRafId !== null) {
         cancelAnimationFrame(dragRafId);
         dragRafId = null;
@@ -2042,7 +2026,6 @@ function ChartContainer({
     };
 
     const scheduleZoomSave = () => {
-      if (suppressChartSideEffectsRef.current) return;
       if (zoomSaveTimeout) {
         clearTimeout(zoomSaveTimeout);
       }
@@ -2069,7 +2052,6 @@ function ChartContainer({
     zoomSaveRef.current = scheduleZoomSave;
 
     chart.on('dataZoom', () => {
-      if (suppressChartSideEffectsRef.current) return;
       // While the user is actively dragging, the pan RAF already sets both the
       // dataZoom window and the y-axis in one batched setOption — skip the
       // autoscale here to avoid a second full re-render per frame.
