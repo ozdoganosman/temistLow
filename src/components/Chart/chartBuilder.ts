@@ -2187,7 +2187,7 @@ export function buildOption(
     zoomEndValue !== undefined && zoomEndValue !== null ? zoomEndValue : undefined;
 
   const dataZoomShared = {
-    filterMode: 'filter' as const,
+    filterMode: 'none' as const,
     xAxisIndex: allXAxisIndices,
     start: zoomStartOpt,
     end: zoomEndOpt,
